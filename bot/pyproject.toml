@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "palka-dazzla-telegram-bot"
+version = "0.1.0"
+description = ""
+package-mode = false
+authors = ["a1ekseevkiri11 <alekseevkirill30092004@mail.ru>"]
+readme = "README.md"
+
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pydantic = "^2.9.2"
+pydantic-settings = "^2.5.2"
+alembic = "^1.13.3"
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.35"}
+aiosqlite = "^0.20.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.2"
+black = "^24.4.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

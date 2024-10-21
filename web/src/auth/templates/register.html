@@ -1,0 +1,15 @@
+{% extends "parts/base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="content-section text-center">
+                {% include "parts/form_auth.html" %}
+                <br>
+                <a href="/auth/login">Уже есть аккаунт? Войдите</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

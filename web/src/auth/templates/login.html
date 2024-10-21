@@ -1,0 +1,24 @@
+{% extends "parts/base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="content-section text-center">
+                {% include "parts/form_auth.html" %}
+                <br>
+                <a href="/auth/register">Нет аккаунта? Зарегистрируйтесь</a>
+                <br>
+                <div class="text-center">
+                    <hr>
+                    <br>
+                    <img src="/static/img/qr_example.png" alt="QR Code" id="qr-code" style="max-width: 100%; height: auto;">
+                    <br>
+                    <br>
+                    <h5>Сканируйте QR-код</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
