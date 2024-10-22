@@ -33,7 +33,6 @@ class Settings(BaseSettings):
     port: int = 10000
     debug: bool = False
 
-
     db: DbSettings = DbSettings()
 
     otp: OTP = OTP()

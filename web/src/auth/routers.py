@@ -5,26 +5,30 @@ from fastapi import (
     Request,
     status,
     HTTPException,
+    Form,
 )
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.auth.services.auth import EmailAuthMethodWithPassword
+from src.auth import schemas as auth_schemas
+from src.database import async_session_maker
+
 
 templates = Jinja2Templates(directory="src/auth/templates")
 
+
 auth_router = APIRouter(tags=["Auth"], prefix="/auth")
 
-@auth_router.get(
-    "/register/",
-    response_class=HTMLResponse
-)
-async def register(
-    request: Request
-):
+
+@auth_router.get("/register/", response_class=HTMLResponse)
+async def register_form(request: Request):
     return templates.TemplateResponse(
-        "register.html", 
+        "register.html",
         {
-        "request": request,
-        "button_text": "Регистрация",
+            "request": request,
+            "button_text": "Регистрация",
         },
     )
 
@@ -33,24 +37,38 @@ async def register(
     "/register/",
 )
 async def register(
-    request: Request
+    username: str = Form(...),
+    password: str = Form(...),
 ):
-    return {"1": 1}
+    register_data = auth_schemas.EmailRegisterRequest(
+        identifier=username,
+        hashed_password=password,
+    )
+    return await EmailAuthMethodWithPassword.register(
+        register_data=register_data,
+    )
+
 
 @auth_router.get("/login/", response_class=HTMLResponse)
-async def get_login_form(
-    request: Request
-):
+async def login_form(request: Request):
     return templates.TemplateResponse(
-        "login.html", 
+        "login.html",
         {
             "request": request,
             "button_text": "Войти",
         },
     )
 
+
 @auth_router.post("/login/")
 async def login(
-    request: Request
+    username: str = Form(...),
+    password: str = Form(...),
 ):
-    return {"2": 2}
+    login_data = auth_schemas.LoginRequest(
+        identifier=username,
+        password=password,
+    )
+    return await EmailAuthMethodWithPassword.login(
+        login_data=login_data,
+    )

@@ -11,6 +11,7 @@ from src.auth import routers as auth_routers
 async def lifespan(app: FastAPI):
     yield
 
+
 app = FastAPI(
     title="palka_dazzla_web",
     description="",

@@ -1,8 +1,8 @@
 """initial
 
-Revision ID: 473978ff52be
+Revision ID: e3dbec4f5e22
 Revises: 
-Create Date: 2024-10-21 23:53:37.764805
+Create Date: 2024-10-22 23:34:27.117131
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "473978ff52be"
+revision: str = "e3dbec4f5e22"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -24,7 +24,7 @@ def upgrade() -> None:
     op.create_table(
         "users",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.PrimaryKeyConstraint("id"),
+        sa.PrimaryKeyConstraint("id", name=op.f("users_pkey")),
     )
     op.create_table(
         "auth_methods",
@@ -33,23 +33,27 @@ def upgrade() -> None:
         sa.Column("identifier", sa.String(length=255), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(
-            ["user_id"],
-            ["users.id"],
+            ["user_id"], ["users.id"], name=op.f("auth_methods_user_id_fkey")
         ),
-        sa.PrimaryKeyConstraint("id"),
+        sa.PrimaryKeyConstraint("id", name=op.f("auth_methods_pkey")),
     )
     op.create_table(
         "auth_methods_with_password",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("method", sa.Enum("TELEGRAM", name="authmethodenum"), nullable=False),
+        sa.Column(
+            "method",
+            sa.Enum("EMAIL", "TELEPHONE", name="authmethodwithpasswordenum"),
+            nullable=False,
+        ),
         sa.Column("identifier", sa.String(length=255), nullable=False),
         sa.Column("hashed_password", sa.String(length=255), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],
+            name=op.f("auth_methods_with_password_user_id_fkey"),
         ),
-        sa.PrimaryKeyConstraint("id"),
+        sa.PrimaryKeyConstraint("id", name=op.f("auth_methods_with_password_pkey")),
     )
     # ### end Alembic commands ###
 

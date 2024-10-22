@@ -1,3 +1,4 @@
+import enum
 from pydantic import (
     BaseModel,
     EmailStr,
@@ -6,9 +7,40 @@ from typing import Optional
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    identifier: str
     password: str
-    
+
+
+class AbstractRegisterWithPasswordRequest(BaseModel):
+    method: str = None
+    identifier: str
+    hashed_password: str
+    user_id: int = None
+
+
+class EmailRegisterRequest(AbstractRegisterWithPasswordRequest):
+    identifier: EmailStr
+
+
+class User(BaseModel):
+    id: int
+
+
+class UserCreateDB(BaseModel):
+    pass
+
+
+class UserUpdateDB(BaseModel):
+    id: int
+
+
+class UserRequest(BaseModel):
+    pass
+
+
+class UserResponse(BaseModel):
+    id: int
+
 
 class RegisterRequest(BaseModel):
     email: EmailStr
@@ -16,29 +48,37 @@ class RegisterRequest(BaseModel):
     c_password: str
 
 
-class User(BaseModel):
-    id: int
-    email: EmailStr
-    
+class AuthMethodWithPasswordEnum(str, enum.Enum):
+    EMAIL = "email"
+    TELEPHONE = "telephone"
 
-class UserCreateDB(BaseModel):
-    email: EmailStr
+
+class AuthMethodWithPasswordCreateDB(BaseModel):
+    method: AuthMethodWithPasswordEnum
+    identifier: str
     hashed_password: str
+    user_id: int
 
 
-class UserUpdateDB(BaseModel):
-    email: Optional[EmailStr] = None
-
-    
-class UserRequest(BaseModel):
-    username: str
-    email: EmailStr
-    
-
-class UserResponse(BaseModel):
+class AuthMethodWithPasswordUpdateDB(BaseModel):
     id: int
-    email: EmailStr
-    
+    method: AuthMethodWithPasswordEnum
+    identifier: str
+    hashed_password: str
+    user_id: int
+
+
+class AuthMethodWithPassword(BaseModel):
+    id: int
+    method: AuthMethodWithPasswordEnum
+    identifier: str
+    hashed_password: str
+    user_id: int
+
+
+class AuthMethodEnum(str, enum.Enum):
+    TELEGRAM = "telegram"
+
 
 class Token(BaseModel):
     access_token: str
