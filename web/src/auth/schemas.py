@@ -2,6 +2,8 @@ import enum
 from pydantic import (
     BaseModel,
     EmailStr,
+    ValidationError,
+    field_validator,
 )
 from typing import Optional
 
@@ -11,73 +13,54 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class AbstractRegisterWithPasswordRequest(BaseModel):
-    method: str = None
+class RegisterWithPasswordRequest(BaseModel):
     identifier: str
-    hashed_password: str
-    user_id: int = None
-
-
-class EmailRegisterRequest(AbstractRegisterWithPasswordRequest):
-    identifier: EmailStr
+    password: str
 
 
 class User(BaseModel):
     id: int
+    email: EmailStr | None = None
+    telephone: str | None = None
+    telegram_id: str | None = None
+    hashed_password: str | None = None
 
 
 class UserCreateDB(BaseModel):
-    pass
+    email: EmailStr | None = None
+    telephone: str | None = None
+    telegram_id: str | None = None
+    hashed_password: str | None = None
 
 
 class UserUpdateDB(BaseModel):
     id: int
-
-
-class UserRequest(BaseModel):
-    pass
+    email: EmailStr | None = None
+    telephone: str | None = None
+    telegram_id: str | None = None
+    hashed_password: str | None = None
 
 
 class UserResponse(BaseModel):
     id: int
+    email: EmailStr | None = None
+    telephone: str | None = None
+    telegram_id: str | None = None
 
 
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-    c_password: str
+class TempUser(User):
+    otp_type: str
+    otp_code: str
 
 
-class AuthMethodWithPasswordEnum(str, enum.Enum):
-    EMAIL = "email"
-    TELEPHONE = "telephone"
+class TempUserCreateDB(UserCreateDB):
+    otp_type: str
+    otp_code: str
 
 
-class AuthMethodWithPasswordCreateDB(BaseModel):
-    method: AuthMethodWithPasswordEnum
-    identifier: str
-    hashed_password: str
-    user_id: int
-
-
-class AuthMethodWithPasswordUpdateDB(BaseModel):
-    id: int
-    method: AuthMethodWithPasswordEnum
-    identifier: str
-    hashed_password: str
-    user_id: int
-
-
-class AuthMethodWithPassword(BaseModel):
-    id: int
-    method: AuthMethodWithPasswordEnum
-    identifier: str
-    hashed_password: str
-    user_id: int
-
-
-class AuthMethodEnum(str, enum.Enum):
-    TELEGRAM = "telegram"
+class TempUserUpdateDB(UserUpdateDB):
+    otp_type: str
+    otp_code: str
 
 
 class Token(BaseModel):

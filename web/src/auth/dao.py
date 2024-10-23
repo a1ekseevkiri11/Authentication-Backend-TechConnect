@@ -13,11 +13,11 @@ class UserDao(
     model = models.User
 
 
-class AuthMethodWithPasswordDao(
+class TempUserDao(
     auth_dao.BaseDAO[
-        models.AuthMethodWithPassword,
-        schemas.AuthMethodWithPasswordCreateDB,
-        schemas.AuthMethodWithPasswordUpdateDB,
+        models.TempUser,
+        schemas.TempUserCreateDB,
+        schemas.TempUserUpdateDB,
     ]
 ):
-    model = models.AuthMethodWithPassword
+    model = models.TempUser

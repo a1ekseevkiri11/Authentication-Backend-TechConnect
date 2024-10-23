@@ -1,105 +1,96 @@
 import abc
 from datetime import timedelta, datetime, timezone
+from fastapi.security import OAuth2PasswordBearer
 import jwt
 from fastapi import (
     HTTPException,
+    Response,
     status,
     Depends,
 )
 from pydantic import (
     BaseModel,
+    EmailStr,
+    ValidationError,
 )
 from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 from sqlalchemy.ext.asyncio import AsyncSession
-from passlib.context import CryptContext
 
 
 from src.settings import settings
 from src.database import async_session_maker
 from src.auth import schemas as auth_schemas
 from src.auth import dao as auth_dao
-from src.auth import models as auth_models
-from src import exceptions
-from src.auth.utils import (
-    get_hash,
-    is_matched_hash,
-    # OAuth2PasswordBearerWithCookie,
+from src.auth.services.user import UserService
+from src.otp.service import (
+    BaseOTPService,
+    EmailOTPService,
+    TelephoneOTPService,
+    TempUserService,
 )
-from src.dao import BaseDAO
+from src.auth.utils import get_hash, is_matched_hash
+from src.auth.services.jwt import JWTServices, TokenService
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def is_email(word: str) -> bool:
+    try:
+        _ = EmailStr._validate(word)
+        return True
+
+    except ValidationError:
+        return False
 
 
-def get_hash(word: str) -> str:
-    return pwd_context.hash(word)
+def is_telefon(word: str) -> bool:
+    return False
 
 
-def is_matched_hash(word: str, hashed: str) -> bool:
-    return pwd_context.verify(word, hashed)
-
-
-BaseDaoType = TypeVar("BaseDaoType", bound=BaseDAO)
-SchemaType = TypeVar("SchemaType", bound=BaseModel)
-
-
-class InterfaceAuthMethod(Generic[SchemaType]):
-    dao: BaseDaoType = None
-    method: str = None
+class AuthMethodWithPassword(abc.ABC):
+    OTPServis: BaseOTPService = None
 
     @classmethod
-    async def register(self):
+    async def get_user_schema(self, schema) -> auth_schemas.UserCreateDB:
         pass
 
     @classmethod
-    async def login(self):
+    async def get_user(
+        self, register_data: auth_schemas.RegisterWithPasswordRequest
+    ) -> auth_schemas.User:
         pass
 
-
-class AuthMethodWithPassword(InterfaceAuthMethod[auth_schemas.AuthMethodWithPassword]):
-    dao = auth_dao.AuthMethodWithPasswordDao
-
     @classmethod
-    async def register(
-        self, register_data: auth_schemas.AbstractRegisterWithPasswordRequest
-    ) -> auth_schemas.UserResponse:
+    async def create_user_from_temp_user(
+        self,
+        temp_user_data: auth_schemas.TempUser,
+    ) -> auth_schemas.User:
         async with async_session_maker() as session:
-            user_exist = await self.dao.find_one_or_none(
-                session, method=self.method, identifier=register_data.identifier
-            )
-            if user_exist is not None:
+
+            if await self.get_user(user_data=temp_user_data) is not None:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail="User with this identifier already exists",
                 )
 
-            # TODO если передаеться register_data.user_id, то не создавать пользователя
-            user_data = auth_schemas.UserCreateDB()
-
             user_db = await auth_dao.UserDao.add(
                 session,
                 auth_schemas.UserCreateDB(
-                    **user_data.model_dump(),
+                    **temp_user_data.model_dump(),
                 ),
             )
-            register_data.hashed_password = get_hash(register_data.hashed_password)
-            register_data.user_id = user_db.id
-            register_data.method = self.method
-            await self.dao.add(session, register_data)
             await session.commit()
 
-            return user_db
+        return user_db.get_schema()
 
     @classmethod
-    async def login(self, login_data: auth_schemas.LoginRequest):
+    async def find_user_and_check_password(self, login_data: auth_schemas.LoginRequest):
         async with async_session_maker() as session:
-            user_db = await self.dao.find_one_or_none(
-                session, method=self.method, identifier=login_data.identifier
-            )
+            user_data = await self.get_user_schema(login_data)
+            user_data = await self.get_user(user_data=user_data)
+
             if not (
-                user_db
+                user_data
                 and is_matched_hash(
-                    word=login_data.password, hashed=user_db.hashed_password
+                    word=login_data.password, hashed=user_data.hashed_password
                 )
             ):
                 raise HTTPException(
@@ -107,10 +98,127 @@ class AuthMethodWithPassword(InterfaceAuthMethod[auth_schemas.AuthMethodWithPass
                     detail="Incorrect identifier or password",
                 )
 
-            return user_db
-
-        return None
+        return user_data
 
 
 class EmailAuthMethodWithPassword(AuthMethodWithPassword):
-    method = auth_schemas.AuthMethodWithPasswordEnum.EMAIL
+    OTPServis = EmailOTPService
+
+    @classmethod
+    async def get_user(self, user_data: auth_schemas.UserCreateDB) -> auth_schemas.User:
+        return await UserService.get_by_email(email=user_data.email)
+
+    @classmethod
+    async def get_user_schema(self, schema) -> auth_schemas.UserCreateDB:
+        return auth_schemas.UserCreateDB(
+            **schema.model_dump(),
+            email=schema.identifier,
+        )
+
+
+class TelephoneAuthMethodWithPassword(AuthMethodWithPassword):
+    OTPServis = TelephoneOTPService
+
+    @classmethod
+    async def get_user(self, user_data: auth_schemas.UserCreateDB) -> auth_schemas.User:
+        return await UserService.get_by_telephone(telephone=user_data.telephone)
+
+    @classmethod
+    async def get_user_schema(self, schema) -> auth_schemas.UserCreateDB:
+        return auth_schemas.UserCreateDB(
+            **schema.model_dump(),
+            telephon=schema.identifier,
+        )
+
+
+class AuthService:
+    @staticmethod
+    async def _get_auth_method_from_identifier(
+        identifier: str,
+    ) -> AuthMethodWithPassword:
+        if is_email(word=identifier):
+            return EmailAuthMethodWithPassword
+        elif is_telefon(word=identifier):
+            pass
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Input Email or telefon",
+            )
+
+    @staticmethod
+    async def _get_auth_method_from_otp_type(
+        otp_type: str,
+    ) -> AuthMethodWithPassword:
+        if otp_type == EmailAuthMethodWithPassword.OTPServis.otp_type:
+            return EmailAuthMethodWithPassword
+        # TODO добавить телефон
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Input Email or telefon",
+            )
+
+    @classmethod
+    async def register(
+        self, register_data: auth_schemas.RegisterWithPasswordRequest
+    ) -> int:
+        method_auth = await self._get_auth_method_from_identifier(
+            register_data.identifier
+        )
+        user_data = await method_auth.get_user_schema(register_data)
+
+        user_data.hashed_password = get_hash(register_data.password)
+
+        if await method_auth.get_user(user_data=user_data) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User with this identifier already exists",
+            )
+
+        user_db = await method_auth.OTPServis.send(user_data=user_data)
+
+        return user_db
+
+    @classmethod
+    async def otp(
+        self,
+        temp_user_db_id: int,
+        code: str,
+    ):
+        temp_user_db = await TempUserService.get(id=temp_user_db_id)
+        method_auth = await self._get_auth_method_from_otp_type(
+            otp_type=temp_user_db.otp_type
+        )
+
+        if not await method_auth.OTPServis.check_otp_code(
+            temp_user_data=temp_user_db, code=code
+        ):
+            return HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorect code",
+            )
+
+        user_data = await method_auth.create_user_from_temp_user(
+            temp_user_data=temp_user_db,
+        )
+        return user_data
+
+        # TODO Вернуть токен
+
+    @classmethod
+    async def login(
+        self, response: Response, login_data: auth_schemas.LoginRequest
+    ) -> auth_schemas.Token:
+
+        method_auth = await self._get_auth_method_from_identifier(login_data.identifier)
+
+        user_data = await method_auth.find_user_and_check_password(
+            login_data=login_data
+        )
+
+        token = JWTServices.create(current_user_id=user_data.id)
+
+        TokenService.set(response=response, token=token)
+
+        return token

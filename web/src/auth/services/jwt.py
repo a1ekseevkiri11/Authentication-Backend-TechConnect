@@ -1,9 +1,11 @@
 from datetime import timedelta, datetime, timezone
+from fastapi.security import OAuth2PasswordBearer
 import jwt
 from fastapi import (
     HTTPException,
     status,
     Depends,
+    Response,
 )
 from typing import Optional
 
@@ -11,6 +13,8 @@ from typing import Optional
 from src.settings import settings
 from src.database import async_session_maker
 from src.auth import schemas as auth_schemas
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login/")
 
 
 class JWTServices:
@@ -39,7 +43,7 @@ class JWTServices:
             )
 
     @classmethod
-    async def create(
+    def create(
         cls,
         current_user_id: int,
         expire_timedelta: timedelta | None = None,
@@ -64,14 +68,26 @@ class JWTServices:
         return token
 
     @classmethod
-    async def is_valid(
-        cls,
+    def is_valid(
+        self,
         token: str,
     ) -> bool:
-        async with async_session_maker() as session:
-            token = JWTServices.decode(token=token)
+        exp = datetime.fromtimestamp(self.decode(token=token).get("exp"))
+        return exp > datetime.now()
 
-            if token.exp > datetime.now():
-                await cls.delete(token)
-                return False
-            return True
+
+class TokenService:
+    @staticmethod
+    def set(response: Response, token: auth_schemas.Token) -> None:
+        response.set_cookie(
+            "access_token",
+            token.access_token,
+            max_age=settings.auth_jwt.access_token_expire_minutes,
+            httponly=True,
+        )
+
+    @staticmethod
+    def clear(
+        response: Response,
+    ) -> None:
+        pass

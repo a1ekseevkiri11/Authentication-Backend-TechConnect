@@ -1,12 +1,8 @@
 import enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import (
-    Text,
-    ForeignKey,
-    String,
-    Enum,
-)
+from sqlalchemy import Text, ForeignKey, String, Enum, Integer
 from typing import List, Optional
+from src.auth import schemas as auth_schemas
 
 
 from src.models import (
@@ -15,7 +11,6 @@ from src.models import (
 
 
 from src.models import Base
-from src.auth.schemas import AuthMethodEnum, AuthMethodWithPasswordEnum
 
 
 class User(Base):
@@ -26,54 +21,81 @@ class User(Base):
         autoincrement=True,
     )
 
-    auth_methods: Mapped[List["AuthMethod"]] = relationship()
-
-    auth_methods_with_password: Mapped[List["AuthMethodWithPassword"]] = relationship()
-
-
-class AuthMethod(Base):
-    __tablename__ = "auth_methods"
-
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        autoincrement=True,
-    )
-    method: Mapped[AuthMethodEnum] = mapped_column(
-        nullable=False,
-    )
-    identifier: Mapped[str] = mapped_column(
+    email: Mapped[str] = mapped_column(
         String(255),
-        nullable=False,
+        nullable=True,
     )
 
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"),
-    )
-    user: Mapped["User"] = relationship(
-        back_populates="auth_methods",
+    telephone: Mapped[str] = mapped_column(
+        String(20),
+        nullable=True,
     )
 
-
-class AuthMethodWithPassword(Base):
-    __tablename__ = "auth_methods_with_password"
-
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        autoincrement=True,
-    )
-    method: Mapped[AuthMethodWithPasswordEnum] = mapped_column(
-        nullable=False,
-    )
-    identifier: Mapped[str] = mapped_column(
+    telegram_id: Mapped[str] = mapped_column(
         String(255),
-        nullable=False,
+        nullable=True,
     )
+
     hashed_password: Mapped[str] = mapped_column(
         String(255),
+        nullable=True,
+    )
+
+    def get_schema(self) -> auth_schemas.User:
+        return auth_schemas.User(
+            id=self.id,
+            email=self.email,
+            telephone=self.telephone,
+            telegram_id=self.telegram_id,
+            hashed_password=self.hashed_password,
+        )
+
+
+class TempUser(Base):
+    __tablename__ = "temp_users"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    otp_type: Mapped[str] = mapped_column(
+        String(20),
         nullable=False,
     )
 
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"),
+    otp_code: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
     )
-    user: Mapped["User"] = relationship(back_populates="auth_methods_with_password")
+
+    email: Mapped[str] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    telephone: Mapped[str] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+
+    telegram_id: Mapped[str] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    hashed_password: Mapped[str] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    def get_schema(self) -> auth_schemas.TempUser:
+        return auth_schemas.TempUser(
+            id=self.id,
+            email=self.email,
+            otp_type=self.otp_type,
+            otp_code=self.otp_code,
+            telephone=self.telephone,
+            telegram_id=self.telegram_id,
+            hashed_password=self.hashed_password,
+        )

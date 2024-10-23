@@ -1,15 +1,6 @@
-import abc
-from datetime import timedelta, datetime, timezone
-import jwt
-from fastapi import (
-    HTTPException,
-    status,
-    Depends,
-)
-from pydantic import (
-    BaseModel,
-)
 from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
+from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -17,14 +8,14 @@ from src.settings import settings
 from src.database import async_session_maker
 from src.auth import schemas as auth_schemas
 from src.auth import dao as auth_dao
-from src.auth import models as auth_models
+from src.auth.services.jwt import JWTServices
 from src import exceptions
-from src.auth.utils import (
-    get_hash,
-    is_matched_hash,
-    # OAuth2PasswordBearerWithCookie,
+from src.auth.utils import OAuth2PasswordCookie
+
+
+oauth2_scheme = OAuth2PasswordCookie(
+    tokenUrl="/api/auth/login/",
 )
-from src.dao import BaseDAO
 
 
 class UserService:
@@ -41,23 +32,59 @@ class UserService:
             ),
         )
         await session.commit()
-        return db_user
+        return db_user.get_schema()
 
-    # @staticmethod
-    # async def get(
-    #         user_id: int
-    # ) -> auth_schemas.User:
-    #     async with async_session_maker() as session:
-    #         db_user = await auth_dao.UserDAO.find_one_or_none(
-    #             session,
-    #             id=user_id,
-    #         )
-    #     if db_user is None:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_404_NOT_FOUND,
-    #             detail="User not found",
-    #         )
-    #     return db_user
+    @staticmethod
+    async def get(id: int) -> auth_schemas.User:
+        async with async_session_maker() as session:
+            user_db = await auth_dao.UserDao.find_one_or_none(
+                session,
+                id=id,
+            )
+            if user_db:
+                return user_db.get_schema()
+
+        return None
+
+    @classmethod
+    async def get_me(
+        self,
+        token: str = Depends(oauth2_scheme),
+    ):
+        try:
+            if not JWTServices.is_valid(token=token):
+                raise exceptions.TokenExpiredException
+
+            payload = JWTServices.decode(token=token)
+            user_id = payload.get("sub")
+            if user_id is None:
+                raise exceptions.InvalidTokenException
+
+        except Exception as ex:
+            raise ex
+
+        user_data = await UserService.get(user_id)
+        return user_data
+
+    @staticmethod
+    async def get_by_email(email: str) -> auth_schemas.User:
+        async with async_session_maker() as session:
+            user_db = await auth_dao.UserDao.find_one_or_none(session, email=email)
+            if user_db:
+                return user_db.get_schema()
+
+        return None
+
+    @staticmethod
+    async def get_by_telephone(telephone: str) -> auth_schemas.User:
+        async with async_session_maker() as session:
+            user_db = await auth_dao.UserDao.find_one_or_none(
+                session, telephone=telephone
+            )
+            if user_db:
+                return user_db.get_schema()
+
+        return None
 
     # @classmethod
     # async def delete(
