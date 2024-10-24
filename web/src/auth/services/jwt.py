@@ -82,7 +82,7 @@ class TokenService:
         response.set_cookie(
             "access_token",
             token.access_token,
-            max_age=settings.auth_jwt.access_token_expire_minutes,
+            max_age=settings.auth_jwt.access_token_expire_minutes * 60,
             httponly=True,
         )
 

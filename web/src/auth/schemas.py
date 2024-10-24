@@ -1,21 +1,30 @@
 import enum
+import re
 from pydantic import (
     BaseModel,
     EmailStr,
     ValidationError,
     field_validator,
+    model_validator,
 )
-from typing import Optional
+from pydantic_extra_types.phone_numbers import PhoneNumber
+from typing import Annotated, Optional, Self
 
 
-class LoginRequest(BaseModel):
-    identifier: str
+class AbstractLoginRequest(BaseModel):
     password: str
 
 
-class RegisterWithPasswordRequest(BaseModel):
-    identifier: str
+class EmailLoginRequest(AbstractLoginRequest):
+    email: EmailStr
+
+
+class AbstractRegisterRequest(BaseModel):
     password: str
+
+
+class EmailRegisterRequest(AbstractRegisterRequest):
+    email: EmailStr
 
 
 class User(BaseModel):

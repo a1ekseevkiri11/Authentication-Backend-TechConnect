@@ -11,9 +11,18 @@ BASE_DIR = Path(__file__).parent.parent
 DB_PATH = BASE_DIR / "db.sqlite3"
 
 
-class EmailSettings(BaseModel):
+class SMSSettings(BaseModel):
+    email: EmailStr = os.getenv("SMSAERO_EMAIL")
+    api_key: str = os.getenv("SMSAERO_API_KEY")
+    gate_urls: str = "@gate.smsaero.ru/v2/"
+    signature: str = "TechConnect"
+    
+
+class SMTPSettings(BaseModel):
     from_address: EmailStr = os.getenv("EMAIL_ADDRESS")
     from_address_password: str = os.getenv("EMAIL_PASSWORD")
+    port: int = 587
+    server: str = "smtp.yandex.ru"
 
 
 class DbSettings(BaseModel):
@@ -41,7 +50,9 @@ class Settings(BaseSettings):
 
     otp: OTP = OTP()
 
-    email: EmailSettings = EmailSettings()
+    smtp: SMTPSettings = SMTPSettings()
+    
+    sms: SMSSettings = SMSSettings()
 
     auth_jwt: AuthJWT = AuthJWT()
 

@@ -1,7 +1,8 @@
-from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
-from fastapi import Depends
-from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import (
+    HTTPException,
+    status,
+    Depends,
+)
 
 
 from src.settings import settings
@@ -21,30 +22,17 @@ oauth2_scheme = OAuth2PasswordCookie(
 class UserService:
 
     @staticmethod
-    async def add(
-        session: AsyncSession,
-        user_data: auth_schemas.UserCreateDB,
-    ) -> auth_schemas.User:
-        db_user = await auth_dao.UserDao.add(
-            session,
-            auth_schemas.UserCreateDB(
-                **user_data.model_dump(),
-            ),
-        )
-        await session.commit()
-        return db_user.get_schema()
-
-    @staticmethod
     async def get(id: int) -> auth_schemas.User:
         async with async_session_maker() as session:
             user_db = await auth_dao.UserDao.find_one_or_none(
                 session,
                 id=id,
             )
-            if user_db:
-                return user_db.get_schema()
-
-        return None
+            if user_db is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+                )
+        return user_db.get_schema()
 
     @classmethod
     async def get_me(
@@ -61,40 +49,7 @@ class UserService:
                 raise exceptions.InvalidTokenException
 
         except Exception as ex:
-            raise ex
+            raise exceptions.InvalidTokenException
 
         user_data = await UserService.get(user_id)
         return user_data
-
-    @staticmethod
-    async def get_by_email(email: str) -> auth_schemas.User:
-        async with async_session_maker() as session:
-            user_db = await auth_dao.UserDao.find_one_or_none(session, email=email)
-            if user_db:
-                return user_db.get_schema()
-
-        return None
-
-    @staticmethod
-    async def get_by_telephone(telephone: str) -> auth_schemas.User:
-        async with async_session_maker() as session:
-            user_db = await auth_dao.UserDao.find_one_or_none(
-                session, telephone=telephone
-            )
-            if user_db:
-                return user_db.get_schema()
-
-        return None
-
-    # @classmethod
-    # async def delete(
-    #         cls,
-    #         user_id: int
-    # ) -> None:
-    #     async with async_session_maker() as session:
-    #         db_user = await cls.get(user_id=user_id)
-    #         await auth_dao.UserDAO.delete(
-    #             session=session,
-    #             id=user_id,
-    #         )
-    #         await session.commit()

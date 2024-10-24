@@ -1,5 +1,6 @@
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     Response,
     Request,
@@ -7,12 +8,10 @@ from fastapi import (
     HTTPException,
     Form,
 )
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth.services.auth import AuthService
+from src.auth.services.auth import EmailAuthService
 from src.auth import schemas as auth_schemas
 from src.auth.services.user import UserService
 
@@ -83,34 +82,54 @@ template_auth_router = APIRouter(tags=["Auth"], prefix="/auth")
 
 auth_router = APIRouter(tags=["Auth"], prefix="/auth")
 
-
+# EMAIL
 @auth_router.post(
-    "/register/",
+    "/register/email/",
 )
 async def register(
-    register_data: auth_schemas.RegisterWithPasswordRequest,
+    register_data: auth_schemas.EmailRegisterRequest,
+    background_tasks: BackgroundTasks,
 ) -> int:
-    return await AuthService.register(register_data=register_data)
+    return await EmailAuthService.register(
+        register_data=register_data,
+        background_tasks=background_tasks,
+    )
 
 
 @auth_router.post(
-    "/otp/",
+    "/otp/email/",
     status_code=status.HTTP_201_CREATED,
     response_model=auth_schemas.UserResponse,
 )
-async def register(
+async def otp(
     temp_user_db_id: int,
     code: str,
 ):
-    return await AuthService.otp(temp_user_db_id=temp_user_db_id, code=code)
+    return await EmailAuthService.otp(
+        temp_user_db_id=temp_user_db_id, 
+        code=code
+    )
 
 
-@auth_router.post("/login/", response_model=auth_schemas.Token)
+@auth_router.post("/login/email", response_model=auth_schemas.Token)
 async def login(
     response: Response,
-    login_data: auth_schemas.LoginRequest = Depends(),
+    login_data: auth_schemas.EmailLoginRequest = Depends(),
 ):
-    return await AuthService.login(response=response, login_data=login_data)
+    return await EmailAuthService.login(
+        response=response, 
+        login_data=login_data,
+    )
+
+# TELEFON 
+# @auth_router.post(
+#     "/register/telephone/",
+# )
+# async def register(
+#     register_data: auth_schemas.TelephoneLoginRequest,
+#     # background_tasks: BackgroundTasks,
+# ) -> int:
+#     return register_data
 
 
 @auth_router.get(

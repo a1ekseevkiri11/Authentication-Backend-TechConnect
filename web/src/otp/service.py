@@ -6,18 +6,20 @@ from email.mime.text import MIMEText
 from fastapi import (
     HTTPException,
     status,
-    Depends,
+    BackgroundTasks,
 )
-from pydantic import EmailStr
 
 
 from src.settings import settings
 from src.database import async_session_maker
 from src.auth import dao as auth_dao
 from src.auth import schemas as auth_schemas
-from src.auth.utils import get_hash
+from src.auth.utils import get_hash, is_matched_hash
+
+from src.email.service import EmailService
 
 
+#TODO переместить схемы и модели TempUser в эту директорию
 class TempUserService:
 
     @staticmethod
@@ -39,6 +41,7 @@ class TempUserService:
 
         return temp_user_db.id
 
+
     @staticmethod
     async def get(
         id: int,
@@ -48,22 +51,16 @@ class TempUserService:
                 session,
                 id=id,
             )
-
+            
+            if temp_user_db is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Temp user not found"
+                )
         return temp_user_db.get_schema()
-
-    @staticmethod
-    async def delete(
-        id: int,
-    ) -> None:
-        async with async_session_maker() as session:
-            await auth_dao.TempUserDao.delete(
-                session,
-                id=id,
-            )
-            await session.commit()
 
 
 class BaseOTPService(abc.ABC):
+    
     otp_type: str
 
     @classmethod
@@ -83,17 +80,19 @@ class BaseOTPService(abc.ABC):
         self,
         code: str,
         user_data: auth_schemas.UserCreateDB,
-    ):
+    ) -> None:
         pass
 
     @classmethod
     async def send(
         self,
         user_data: auth_schemas.UserCreateDB,
+        background_tasks: BackgroundTasks,
     ) -> int:
         code = self._generate_code()
-
-        await self._send_code(
+        
+        background_tasks.add_task(
+            self._send_code,
             code=code,
             user_data=user_data,
         )
@@ -107,12 +106,16 @@ class BaseOTPService(abc.ABC):
         return temp_user_db_id
 
 
-# TODO: разделить email и sms отправку от OTP
-# TODO: сделать отправку email и sms фоновыми задачами
-
-
 class TelephoneOTPService(BaseOTPService):
-    pass
+    otp_type = "telefon"
+    
+    @classmethod
+    async def _send_code(
+        self,
+        code: str,
+        user_data: auth_schemas.UserCreateDB,
+    ) -> None:
+        print(f"Код {code} отправлен на номер {user_data.telephone}")
 
 
 class EmailOTPService(BaseOTPService):
@@ -123,20 +126,13 @@ class EmailOTPService(BaseOTPService):
         self,
         code: str,
         user_data: auth_schemas.UserCreateDB,
-    ):
+    ) -> None:
         msg = MIMEText(code)
         msg["Subject"] = "Ваш одноразовый пароль"
-        msg["From"] = settings.email.from_address
+        msg["From"] = settings.smtp.from_address
         msg["To"] = user_data.email
-        try:
-            with smtplib.SMTP("smtp.yandex.ru", 587) as server:
-                server.starttls()
-                server.login(
-                    settings.email.from_address, settings.email.from_address_password
-                )
-                server.sendmail(
-                    settings.email.from_address, user_data.email, msg.as_string()
-                )
-        except Exception as e:
-            print("\nERROR\n", e)
-            raise HTTPException(status_code=500, detail=f"Failed to send OTP {e}")
+        await EmailService.send(
+            msg=msg,
+            to_adres=user_data.email
+        )
+        
