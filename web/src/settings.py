@@ -11,6 +11,10 @@ BASE_DIR = Path(__file__).parent.parent
 DB_PATH = BASE_DIR / "db.sqlite3"
 
 
+class TelegramBotSettings(BaseModel):
+    token: str = ""
+
+
 class SMSSettings(BaseModel):
     email: EmailStr = os.getenv("SMSAERO_EMAIL")
     api_key: str = os.getenv("SMSAERO_API_KEY")
@@ -43,7 +47,7 @@ class OTP(BaseModel):
 
 class Settings(BaseSettings):
     host: str = "127.0.0.1"
-    port: int = 10000
+    port: int = 5050
     debug: bool = False
 
     db: DbSettings = DbSettings()

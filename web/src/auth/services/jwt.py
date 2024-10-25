@@ -4,15 +4,13 @@ import jwt
 from fastapi import (
     HTTPException,
     status,
-    Depends,
     Response,
 )
-from typing import Optional
 
 
 from src.settings import settings
-from src.database import async_session_maker
 from src.auth import schemas as auth_schemas
+
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login/")
 

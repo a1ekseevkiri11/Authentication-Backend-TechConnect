@@ -56,7 +56,7 @@ class TempUserService:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail="Temp user not found"
                 )
-        return temp_user_db.get_schema()
+        return auth_schemas.TempUser.model_validate(temp_user_db)
 
 
 class BaseOTPService(abc.ABC):

@@ -3,9 +3,10 @@ from fastapi import (
     status,
     Depends,
 )
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 
-from src.settings import settings
 from src.database import async_session_maker
 from src.auth import schemas as auth_schemas
 from src.auth import dao as auth_dao
@@ -20,19 +21,23 @@ oauth2_scheme = OAuth2PasswordCookie(
 
 
 class UserService:
-
+    #TODO возвращать вместе с телеграм
     @staticmethod
     async def get(id: int) -> auth_schemas.User:
         async with async_session_maker() as session:
-            user_db = await auth_dao.UserDao.find_one_or_none(
-                session,
-                id=id,
+            stmt = (
+                select(auth_dao.UserDao.model)
+                .options(selectinload(auth_dao.UserDao.model.telegram))
+                .where(auth_dao.UserDao.model.id == id)
             )
+            user_db = await session.execute(stmt)
+            user_db = user_db.scalars().one_or_none()
+
             if user_db is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
                 )
-        return user_db.get_schema()
+        return auth_schemas.User.model_validate(user_db)
 
     @classmethod
     async def get_me(
@@ -51,5 +56,4 @@ class UserService:
         except Exception as ex:
             raise exceptions.InvalidTokenException
 
-        user_data = await UserService.get(user_id)
-        return user_data
+        return await UserService.get(user_id)

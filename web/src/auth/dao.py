@@ -21,3 +21,13 @@ class TempUserDao(
     ]
 ):
     model = models.TempUser
+    
+
+class TelegramDao(
+    auth_dao.BaseDAO[
+        models.Telegram,
+        schemas.TelegramCreateDB,
+        schemas.TelegramUpdateDB,
+    ]
+):
+    model = models.Telegram

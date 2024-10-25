@@ -5,12 +5,13 @@ from fastapi import (
     Response,
     status,
 )
+from sqlalchemy import select
 
 
-from src.settings import settings
 from src.database import async_session_maker
 from src.auth import schemas as auth_schemas
 from src.auth import dao as auth_dao
+from src.auth import models as auth_models
 from src.otp.service import (
     BaseOTPService,
     EmailOTPService,
@@ -19,6 +20,7 @@ from src.otp.service import (
 )
 from src.auth.utils import get_hash, is_matched_hash
 from src.auth.services.jwt import JWTServices, TokenService
+
 
 
 class AuthMethodWithPassword(abc.ABC):
@@ -53,11 +55,12 @@ class AuthMethodWithPassword(abc.ABC):
                 session,
                 auth_schemas.UserCreateDB(
                     **temp_user_data.model_dump(),
+                    telegram=None
                 ),
             )
             await session.commit()
-
-        return user_db.get_schema()
+        
+        return auth_schemas.User.model_validate(user_db)
 
     @classmethod
     async def find_user_and_check_password(self, login_data: auth_schemas.AbstractLoginRequest):
@@ -83,10 +86,14 @@ class EmailAuthMethodWithPassword(AuthMethodWithPassword):
     @classmethod
     async def get_user(self, user_data: auth_schemas.UserCreateDB) -> auth_schemas.User:
         async with async_session_maker() as session:
-            return await auth_dao.UserDao.find_one_or_none(
+            user = await auth_dao.UserDao.find_one_or_none(
                 session=session,
                 email=user_data.email,
             )
+            if user is not None:
+                return auth_schemas.User.model_validate(user)
+            
+            return None
 
 
 class TelephoneAuthMethodWithPassword(AuthMethodWithPassword):
@@ -94,7 +101,15 @@ class TelephoneAuthMethodWithPassword(AuthMethodWithPassword):
 
     @classmethod
     async def get_user(self, user_data: auth_schemas.UserCreateDB) -> auth_schemas.User:
-        return await auth_dao.UserDao.find_one_or_none(telephone=user_data.telephone)
+        async with async_session_maker() as session:
+            user =  await auth_dao.UserDao.find_one_or_none(
+                session=session,
+                telephone=user_data.telephone,
+            )
+            if user is not None:
+                return auth_schemas.User.model_validate(user)
+            
+            return None
 
 
 class AuthService:
@@ -102,7 +117,7 @@ class AuthService:
         self,
         method_auth: AuthMethodWithPassword,
     ) -> None:
-        self.method_auth = method_auth
+        self._method_auth = method_auth
 
 
     async def register(
@@ -112,17 +127,16 @@ class AuthService:
     ) -> int:
         user_data = auth_schemas.UserCreateDB(
             **register_data.model_dump(),
+            hashed_password = get_hash(register_data.password)
         )
 
-        user_data.hashed_password = get_hash(register_data.password)
-
-        if await self.method_auth.get_user(user_data=user_data) is not None:
+        if await self._method_auth.get_user(user_data=user_data) is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="User with this identifier already exists",
             )
 
-        temp_user_db_id = await self.method_auth.OTPServis.send(
+        temp_user_db_id = await self._method_auth.OTPServis.send(
             user_data=user_data,
             background_tasks=background_tasks,
         )
@@ -137,7 +151,7 @@ class AuthService:
     ):
         temp_user_db = await TempUserService.get(id=temp_user_db_id)
         
-        if not await self.method_auth.OTPServis.check_otp_code(
+        if not await self._method_auth.OTPServis.check_otp_code(
             temp_user_data=temp_user_db, code=code
         ):
             raise HTTPException(
@@ -145,7 +159,7 @@ class AuthService:
                 detail="Incorect code",
             )
 
-        user_data = await self.method_auth.create_user_from_temp_user(
+        user_data = await self._method_auth.create_user_from_temp_user(
             temp_user_data=temp_user_db,
         )
         return user_data
@@ -157,7 +171,7 @@ class AuthService:
         login_data: auth_schemas.AbstractRegisterRequest,
     ) -> auth_schemas.Token:
 
-        user_data = await self.method_auth.find_user_and_check_password(
+        user_data = await self._method_auth.find_user_and_check_password(
             login_data=login_data
         )
 
@@ -171,3 +185,47 @@ class AuthService:
 EmailAuthService = AuthService(
     method_auth=EmailAuthMethodWithPassword
 )
+
+
+TelephoneAuthService = AuthService(
+    method_auth=TelephoneAuthMethodWithPassword
+)
+
+
+class TelegramService:
+    async def attach(
+        telegram_request: auth_schemas.TelegramRequest,
+        current_user: auth_schemas.User
+    ) -> None:
+        async with async_session_maker() as session:
+            existing_telegram = await session.execute(
+                select(auth_models.Telegram).
+                where(auth_models.Telegram.user_id == current_user.id)
+            )
+            if existing_telegram.scalars().first() is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="User already attach telegram",
+                )
+            
+            await auth_dao.TelegramDao.add(
+                session,
+                auth_schemas.TelegramCreateDB(
+                    **telegram_request.model_dump(),
+                    user_id=current_user.id,
+                )
+            )
+            
+            await session.commit()
+
+
+class TelegramAuthService:
+    async def attach(
+        telegram_request: auth_schemas.TelegramRequest,
+        current_user: auth_schemas.User
+    ) -> None:
+        
+        await TelegramService.attach(
+            telegram_request=telegram_request,
+            current_user=current_user,
+        )
