@@ -21,7 +21,7 @@ class TempUserDao(
     ]
 ):
     model = models.TempUser
-    
+
 
 class TelegramDao(
     auth_dao.BaseDAO[

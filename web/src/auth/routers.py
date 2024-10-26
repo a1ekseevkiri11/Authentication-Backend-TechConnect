@@ -14,7 +14,11 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth.services.auth import EmailAuthService, TelephoneAuthService, TelegramAuthService
+from src.auth.services.auth import (
+    EmailAuthService,
+    TelephoneAuthService,
+    TelegramAuthService,
+)
 from src.auth import schemas as auth_schemas
 from src.auth.services.user import UserService
 
@@ -67,7 +71,6 @@ template_auth_router = APIRouter(tags=["Auth"], prefix="/auth")
 #     )
 
 
-
 # @template_auth_router.post("/login/email/")
 # async def template_login(
 #     background_tasks: BackgroundTasks,
@@ -82,30 +85,25 @@ template_auth_router = APIRouter(tags=["Auth"], prefix="/auth")
 #         register_data=register_data,
 #         background_tasks=background_tasks,
 #     )
-    
-    
+
 
 @template_auth_router.get("/profile/")
 async def templates_profile(
-    request: Request,
-    current_user: auth_schemas.User = Depends(UserService.get_me)
+    request: Request, current_user: auth_schemas.User = Depends(UserService.get_me)
 ):
-    current_user_data = auth_schemas.UserResponse(
-        id=current_user.id,
-        email=current_user.email,
-        telephone=current_user.telephone,        
-    )
     return templates.TemplateResponse(
         request,
         "profile.html",
-        {"user": current_user_data.model_dump()},
+        {
+            "user": current_user.model_dump(),
+        },
     )
-
 
 
 ######### API #############
 
 auth_router = APIRouter(tags=["Auth"], prefix="/auth")
+
 
 # EMAIL
 @auth_router.post(
@@ -122,18 +120,15 @@ async def email_register(
 
 
 @auth_router.post(
-    "/otp/email/",
+    "/otp/",
     status_code=status.HTTP_201_CREATED,
     response_model=auth_schemas.UserResponse,
 )
-async def email_otp(
+async def otp(
     temp_user_db_id: int,
     code: str,
 ):
-    return await EmailAuthService.otp(
-        temp_user_db_id=temp_user_db_id, 
-        code=code
-    )
+    return await EmailAuthService.otp(temp_user_db_id=temp_user_db_id, code=code)
 
 
 @auth_router.post("/login/email/", response_model=auth_schemas.Token)
@@ -142,7 +137,7 @@ async def email_login(
     login_data: auth_schemas.EmailLoginRequest = Depends(),
 ):
     return await EmailAuthService.login(
-        response=response, 
+        response=response,
         login_data=login_data,
     )
 
@@ -157,9 +152,9 @@ async def attach_telegram(
     photo_url: str = Query(..., alias="photo_url"),
     auth_date: int = Query(..., alias="auth_date"),
     hash: str = Query(..., alias="hash"),
-    current_user: auth_schemas.User = Depends(UserService.get_me)
+    current_user: auth_schemas.User = Depends(UserService.get_me),
 ):
-    #TODO проверить хэш через ключ на правильность данных
+    # TODO проверить хэш через ключ на правильность данных
     telegram_request = auth_schemas.TelegramRequest(
         id=id,
         first_name=first_name,
@@ -193,7 +188,5 @@ async def telephone_register(
     "/user/me/",
     response_model=auth_schemas.UserResponse,
 )
-async def me(
-    current_user: auth_schemas.User = Depends(UserService.get_me)
-):
+async def me(current_user: auth_schemas.User = Depends(UserService.get_me)):
     return current_user

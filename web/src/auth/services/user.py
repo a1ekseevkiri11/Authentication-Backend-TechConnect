@@ -21,7 +21,6 @@ oauth2_scheme = OAuth2PasswordCookie(
 
 
 class UserService:
-    #TODO возвращать вместе с телеграм
     @staticmethod
     async def get(id: int) -> auth_schemas.User:
         async with async_session_maker() as session:
@@ -37,7 +36,8 @@ class UserService:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
                 )
-        return auth_schemas.User.model_validate(user_db)
+
+        return auth_schemas.UserResponse.model_validate(user_db)
 
     @classmethod
     async def get_me(

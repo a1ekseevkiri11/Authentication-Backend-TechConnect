@@ -12,15 +12,18 @@ DB_PATH = BASE_DIR / "db.sqlite3"
 
 
 class TelegramBotSettings(BaseModel):
-    token: str = ""
+    token: str = os.getenv("TELEGRAM_BOT_TOKEN")
 
 
 class SMSSettings(BaseModel):
     email: EmailStr = os.getenv("SMSAERO_EMAIL")
     api_key: str = os.getenv("SMSAERO_API_KEY")
-    gate_urls: str = "@gate.smsaero.ru/v2/"
-    signature: str = "TechConnect"
-    
+    gate_url: str = "gate.smsaero.ru/v2/"
+    signature: str = (
+        "SMS Aero"  # Лучше не менять, почему-то при других данных выдает ошибку
+    )
+    timeout: int = 10
+
 
 class SMTPSettings(BaseModel):
     from_address: EmailStr = os.getenv("EMAIL_ADDRESS")
@@ -43,6 +46,7 @@ class AuthJWT(BaseModel):
 
 class OTP(BaseModel):
     length: int = 6
+    expire_minutes: int = 1
 
 
 class Settings(BaseSettings):
@@ -55,7 +59,7 @@ class Settings(BaseSettings):
     otp: OTP = OTP()
 
     smtp: SMTPSettings = SMTPSettings()
-    
+
     sms: SMSSettings = SMSSettings()
 
     auth_jwt: AuthJWT = AuthJWT()
