@@ -25,6 +25,7 @@ from src.otp.service import (
 from src.auth.utils import get_hash, is_matched_hash
 from src.auth.services.jwt import JWTServices, TokenService
 from src.settings import settings
+from src.auth.services.user import UserService
 
 
 class AuthMethodWithPassword(abc.ABC):
@@ -152,7 +153,7 @@ class AuthService:
             temp_user_data=temp_user_db, code=code
         ):
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_409_CONFLICT,
                 detail="Incorect code",
             )
 
@@ -191,6 +192,15 @@ class TelegramService:
         current_user: auth_schemas.User
     ) -> None:
         async with async_session_maker() as session:
+            telegram_db = await auth_dao.TelegramDao.find_one_or_none(
+                session,
+                id=telegram_request.id,
+            )
+            if telegram_db is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User with this telegram already exists",
+                )
             existing_telegram = await session.execute(
                 select(auth_models.Telegram).where(
                     auth_models.Telegram.user_id == current_user.id
@@ -211,8 +221,31 @@ class TelegramService:
             )
 
             await session.commit()
-
-
+            
+    @classmethod
+    async def find_user_with_this_telegram(
+        self,
+        telegram_request: auth_schemas.TelegramRequest, 
+    ) -> auth_schemas.User:
+        async with async_session_maker() as session:
+            telegram_db = await auth_dao.TelegramDao.find_one_or_none(
+                session,
+                id=telegram_request.id,
+            )
+            if telegram_db is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User with this telegram not found",
+                )
+            user_db = await auth_dao.UserDao.find_one_or_none(
+                session,
+                id=telegram_db.user_id,
+            )
+            print(user_db)
+            
+        return auth_schemas.User.model_validate(user_db)
+            
+            
 class TelegramAuthService:
     @classmethod
     def _is_matched_hash(
@@ -254,3 +287,21 @@ class TelegramAuthService:
             telegram_request=telegram_request,
             current_user=current_user,
         )
+        
+    @classmethod
+    async def login(
+        self,
+        response: Response,
+        telegram_request: auth_schemas.TelegramRequest, 
+    ) -> auth_schemas.Token:
+        self._is_matched_hash(telegram_request=telegram_request)
+        user_data = await TelegramService.find_user_with_this_telegram(
+            telegram_request=telegram_request,
+        )
+        token = JWTServices.create(current_user_id=user_data.id)
+
+        TokenService.set(response=response, token=token)
+        
+        return token
+        
+        

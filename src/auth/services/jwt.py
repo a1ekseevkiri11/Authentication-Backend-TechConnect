@@ -88,4 +88,4 @@ class TokenService:
     def clear(
         response: Response,
     ) -> None:
-        pass
+        response.delete_cookie("access_token")

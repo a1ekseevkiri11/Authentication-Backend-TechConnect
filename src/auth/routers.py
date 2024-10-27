@@ -1,4 +1,3 @@
-import json
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -7,22 +6,20 @@ from fastapi import (
     Response,
     Request,
     status,
-    HTTPException,
-    Form,
 )
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.ext.asyncio import AsyncSession
+
 
 from src.auth.services.auth import (
-    AuthService,
     EmailAuthService,
     TelephoneAuthService,
     TelegramAuthService,
 )
 from src.auth import schemas as auth_schemas
 from src.auth.services.user import UserService
-
+from src.settings import settings
+from src.auth.services.jwt import TokenService
 
 templates = Jinja2Templates(directory="src/auth/templates")
 
@@ -46,6 +43,10 @@ async def template_login(request: Request):
         "login.html",
         {
             "request": request,
+            "telegram_auth_widget": {
+                "auth_url": settings.telegram_auth_widget.login_url,
+                "login": settings.telegram_auth_widget.login,
+            }
         },
     )
 
@@ -59,6 +60,10 @@ async def templates_profile(
         "profile.html",
         {
             "user": current_user.model_dump(),
+            "telegram_auth_widget": {
+                "auth_url": settings.telegram_auth_widget.attach_url,
+                "login": settings.telegram_auth_widget.login,
+            }
         },
     )
 
@@ -111,7 +116,10 @@ async def email_login(
 
 
 # TELEGRAM
-@auth_router.get("/attach/telegram/")
+@auth_router.get(
+    "/attach/telegram/",
+    response_class= RedirectResponse,
+)
 async def attach_telegram(
     id: int = Query(..., alias="id"),
     first_name: str = Query(..., alias="first_name"),
@@ -135,6 +143,38 @@ async def attach_telegram(
         telegram_request=telegram_request,
         current_user=current_user,
     )
+    return "/auth/profile/"
+
+
+@auth_router.get(
+    "/login/telegram/", 
+    response_class= RedirectResponse,
+)
+async def telegram_login(
+    response: Response,
+    id: int = Query(..., alias="id"),
+    first_name: str = Query(..., alias="first_name"),
+    last_name: str = Query(..., alias="last_name"),
+    username: str = Query(..., alias="username"),
+    photo_url: str = Query(..., alias="photo_url"),
+    auth_date: int = Query(..., alias="auth_date"),
+    hash: str = Query(..., alias="hash"),
+):
+    telegram_request = auth_schemas.TelegramRequest(
+        id=id,
+        first_name=first_name,
+        last_name=last_name,
+        username=username,
+        photo_url=photo_url,
+        auth_date=auth_date,
+        hash=hash,
+    )
+    await TelegramAuthService.login(
+        response=response,
+        telegram_request=telegram_request,
+    )
+    return "/auth/profile/"
+    
 
 
 # TELEPHONE
@@ -169,7 +209,7 @@ async def otp_telephone(
 
 
 @auth_router.post("/login/telephone/", response_model=auth_schemas.Token)
-async def email_login(
+async def telephone_login(
     response: Response,
     login_data: auth_schemas.TelephoneLoginRequest,
 ):
@@ -177,6 +217,17 @@ async def email_login(
         response=response,
         login_data=login_data,
     )
+
+
+@auth_router.post(
+    "/logout/",
+)
+async def logout(
+    response: Response,
+    current_user: auth_schemas.User = Depends(UserService.get_me)
+) -> None:
+    TokenService.clear(response)
+    
 
 
 # TODO перенести роутеры и методы user в отдельную директорию
