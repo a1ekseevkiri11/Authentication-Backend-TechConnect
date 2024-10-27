@@ -1,27 +1,22 @@
 {% extends "parts/base.html" %}
 
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="content-section text-center">
-                <h2>Данные пользователя</h2>
-				<p>Email: {{ user.email if user.email else "Не указано" }}</p>
-				<p>Телефон: {{ user.telephone if user.telephone else "Не указано" }}</p>
 
-				{% if user.telegram %}
-					<h3>Данные Telegram</h3>
-					<p>Имя: {{ user.telegram.first_name }}</p>
-					<p>Фамилия: {{ user.telegram.last_name if user.telegram.last_name else "Не указано" }}</p>
-					<p>Пользовательское имя: {{ user.telegram.username }}</p>
-					<img src="{{ user.telegram.photo_url }}" alt="Фото пользователя" class="img-fluid">
-				{% else %}
-					<h3>Telegram не подключен</h3>
-					<p>Вы можете добавить Telegram, нажав на кнопку ниже:</p>
-					<script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="TESTQWERTYMY_bot" data-size="large" data-auth-url="https://d948-37-79-71-251.ngrok-free.app/api/auth/attach/telegram"></script>
-				{% endif %}
-            </div>
-        </div>
-    </div>
-</div>
+<h2>Данные пользователя</h2>
+<p>Email: {{ user.email if user.email else "Не указано" }}</p>
+<p>Телефон: {{ user.telephone if user.telephone else "Не указано" }}</p>
+
+{% if user.telegram %}
+<h3>Данные Telegram</h3>
+<p>Имя: {{ user.telegram.first_name }}</p>
+<p>Фамилия: {{ user.telegram.last_name if user.telegram.last_name else "Не указано" }}</p>
+<p>Пользовательское имя: {{ user.telegram.username }}</p>
+<img src="{{ user.telegram.photo_url }}" alt="Фото пользователя" class="img-fluid">
+{% else %}
+<h3>Telegram не подключен</h3>
+<p>Вы можете добавить Telegram, нажав на кнопку ниже:</p>
+<script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="TESTQWERTYMY_bot"
+	data-size="large" data-auth-url="https://d948-37-79-71-251.ngrok-free.app/api/auth/attach/telegram"></script>
+{% endif %}
+
 {% endblock content %}

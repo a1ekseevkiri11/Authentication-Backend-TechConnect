@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.services.auth import (
+    AuthService,
     EmailAuthService,
     TelephoneAuthService,
     TelegramAuthService,
@@ -26,65 +27,27 @@ from src.auth.services.user import UserService
 templates = Jinja2Templates(directory="src/auth/templates")
 
 
-template_auth_router = APIRouter(tags=["Auth"], prefix="/auth")
+template_auth_router = APIRouter(tags=["Templates"], prefix="/auth")
 
 
-# @template_auth_router.get("/register/", response_class=HTMLResponse)
-# async def template_register_form(request: Request):
-#     return templates.TemplateResponse(
-#         "register.html",
-#         {
-#             "request": request,
-#             "button_text": "Регистрация",
-#         },
-#     )
+@template_auth_router.get("/register/", response_class=HTMLResponse)
+async def template_register(request: Request):
+    return templates.TemplateResponse(
+        "register.html",
+        {
+            "request": request,
+        },
+    )
 
 
-# @template_auth_router.post(
-#     "/register/",
-# )
-# async def template_register(
-#     username: str = Form(...),
-#     password: str = Form(...),
-# ):
-#     try:
-#         register_data = auth_schemas.EmailRegisterRequest(
-#             email=username,
-#             hashed_password=password,
-#         )
-#     except ValueError as ex:
-#         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"{ex}")
-
-#     return await EmailAuthMethodWithPassword.register(
-#         register_data=register_data,
-#     )
-
-
-# @template_auth_router.get("/login/", response_class=HTMLResponse)
-# async def template_login_form(request: Request):
-#     return templates.TemplateResponse(
-#         "login.html",
-#         {
-#             "request": request,
-#             "button_text": "Войти",
-#         },
-#     )
-
-
-# @template_auth_router.post("/login/email/")
-# async def template_login(
-#     background_tasks: BackgroundTasks,
-#     username: str = Form(...),
-#     password: str = Form(...),
-# ):
-#     register_data = auth_schemas.EmailRegisterRequest(
-#         email=username,
-#         password=password,
-#     )
-#     temp_user_id = await EmailAuthService.register(
-#         register_data=register_data,
-#         background_tasks=background_tasks,
-#     )
+@template_auth_router.get("/login/", response_class=HTMLResponse)
+async def template_login(request: Request):
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+        },
+    )
 
 
 @template_auth_router.get("/profile/")
@@ -108,33 +71,38 @@ auth_router = APIRouter(tags=["Auth"], prefix="/auth")
 # EMAIL
 @auth_router.post(
     "/register/email/",
+    response_model=auth_schemas.TempUserResponce,
 )
 async def email_register(
     register_data: auth_schemas.EmailRegisterRequest,
     background_tasks: BackgroundTasks,
-) -> int:
-    return await EmailAuthService.register(
+) -> auth_schemas.TempUserResponce:
+    temp_user_id = await EmailAuthService.register(
         register_data=register_data,
         background_tasks=background_tasks,
+    )
+    return auth_schemas.TempUserResponce(
+        id=temp_user_id
     )
 
 
 @auth_router.post(
-    "/otp/",
+    "/otp/email/",
     status_code=status.HTTP_201_CREATED,
-    response_model=auth_schemas.UserResponse,
 )
-async def otp(
-    temp_user_db_id: int,
-    code: str,
-):
-    return await EmailAuthService.otp(temp_user_db_id=temp_user_db_id, code=code)
+async def otp_email(
+    otp_data: auth_schemas.OTPRequest
+) -> None:
+    await EmailAuthService.otp(
+        temp_user_id=otp_data.temp_user_id, 
+        code=otp_data.code
+    )
 
 
 @auth_router.post("/login/email/", response_model=auth_schemas.Token)
 async def email_login(
     response: Response,
-    login_data: auth_schemas.EmailLoginRequest = Depends(),
+    login_data: auth_schemas.EmailLoginRequest,
 ):
     return await EmailAuthService.login(
         response=response,
@@ -154,7 +122,6 @@ async def attach_telegram(
     hash: str = Query(..., alias="hash"),
     current_user: auth_schemas.User = Depends(UserService.get_me),
 ):
-    # TODO проверить хэш через ключ на правильность данных
     telegram_request = auth_schemas.TelegramRequest(
         id=id,
         first_name=first_name,
@@ -173,17 +140,46 @@ async def attach_telegram(
 # TELEPHONE
 @auth_router.post(
     "/register/telephone/",
+    response_model=auth_schemas.TempUserResponce,
 )
 async def telephone_register(
     register_data: auth_schemas.TelephoneRegisterRequest,
     background_tasks: BackgroundTasks,
-):
-    return await TelephoneAuthService.register(
+) -> auth_schemas.TempUserResponce:
+    temp_user_id = await TelephoneAuthService.register(
         register_data=register_data,
         background_tasks=background_tasks,
     )
+    return auth_schemas.TempUserResponce(
+        id=temp_user_id
+    )
+    
+
+@auth_router.post(
+    "/otp/telephone/",
+    status_code=status.HTTP_201_CREATED,
+)
+async def otp_telephone(
+    otp_data: auth_schemas.OTPRequest
+) -> None:
+    await TelephoneAuthService.otp(
+        temp_user_id=otp_data.temp_user_id, 
+        code=otp_data.code
+    )
 
 
+@auth_router.post("/login/telephone/", response_model=auth_schemas.Token)
+async def email_login(
+    response: Response,
+    login_data: auth_schemas.TelephoneLoginRequest,
+):
+    return await TelephoneAuthService.login(
+        response=response,
+        login_data=login_data,
+    )
+
+
+# TODO перенести роутеры и методы user в отдельную директорию
 @auth_router.get(
     "/user/me/",
     response_model=auth_schemas.UserResponse,

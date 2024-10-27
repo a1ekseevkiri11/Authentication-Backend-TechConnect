@@ -1,4 +1,6 @@
 import abc
+import time
+
 from fastapi import (
     BackgroundTasks,
     HTTPException,
@@ -6,6 +8,8 @@ from fastapi import (
     status,
 )
 from sqlalchemy import select
+import hmac
+import hashlib
 
 
 from src.database import async_session_maker
@@ -20,6 +24,7 @@ from src.otp.service import (
 )
 from src.auth.utils import get_hash, is_matched_hash
 from src.auth.services.jwt import JWTServices, TokenService
+from src.settings import settings
 
 
 class AuthMethodWithPassword(abc.ABC):
@@ -135,15 +140,15 @@ class AuthService:
         )
 
         return temp_user_db_id
-
+    
     async def otp(
         self,
-        temp_user_db_id: int,
+        temp_user_id: int,
         code: str,
-    ):
-        temp_user_db = await TempUserService.get(id=temp_user_db_id)
+    ) -> None:
+        temp_user_db = await TempUserService.get(id=temp_user_id)
 
-        if not await BaseOTPService.check_otp_code(
+        if not await self._method_auth.OTPServis.check_otp_code(
             temp_user_data=temp_user_db, code=code
         ):
             raise HTTPException(
@@ -154,7 +159,6 @@ class AuthService:
         user_data = await self._method_auth.create_user_from_temp_user(
             temp_user_data=temp_user_db,
         )
-        return user_data
 
     async def login(
         self,
@@ -180,8 +184,11 @@ TelephoneAuthService = AuthService(method_auth=TelephoneAuthMethodWithPassword)
 
 
 class TelegramService:
+    @classmethod
     async def attach(
-        telegram_request: auth_schemas.TelegramRequest, current_user: auth_schemas.User
+        self,
+        telegram_request: auth_schemas.TelegramRequest, 
+        current_user: auth_schemas.User
     ) -> None:
         async with async_session_maker() as session:
             existing_telegram = await session.execute(
@@ -207,10 +214,42 @@ class TelegramService:
 
 
 class TelegramAuthService:
-    async def attach(
-        telegram_request: auth_schemas.TelegramRequest, current_user: auth_schemas.User
+    @classmethod
+    def _is_matched_hash(
+        self,
+        telegram_request: auth_schemas.TelegramRequest,
     ) -> None:
+        check_hash = telegram_request.hash
+        auth_data_dict = telegram_request.model_dump()
+        del auth_data_dict["hash"]
 
+        data_check_arr = [f"{key}={value}" for key, value in auth_data_dict.items()]
+        data_check_arr.sort()
+        data_check_string = "\n".join(data_check_arr)
+
+        secret_key = hashlib.sha256(
+            settings.telegram_bot.token.encode()
+        ).digest()
+        
+        hash_value = hmac.new(
+            secret_key, data_check_string.encode(), hashlib.sha256
+        ).hexdigest()
+
+        if hash_value != check_hash:
+            raise Exception("Data is NOT from Telegram")
+        
+        if (time.time() - telegram_request.auth_date) > 86400:
+            raise Exception("Data is outdated")
+        
+        return None
+    
+    @classmethod
+    async def attach(
+        self,
+        telegram_request: auth_schemas.TelegramRequest, 
+        current_user: auth_schemas.User,
+    ) -> None:
+        self._is_matched_hash(telegram_request=telegram_request)
         await TelegramService.attach(
             telegram_request=telegram_request,
             current_user=current_user,

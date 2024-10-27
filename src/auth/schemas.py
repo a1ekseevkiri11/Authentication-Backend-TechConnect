@@ -120,6 +120,15 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+class TempUserResponce(BaseModel):
+    id: int
+
+    
+class OTPRequest(BaseModel):
+    temp_user_id: int
+    code: str
+
+
 class TempUser(AbstractUser):
     id: int
     exp: datetime

@@ -1,24 +1,72 @@
 {% extends "parts/base.html" %}
 
+{% block title %}
+Регистрация
+{% endblock %}
+
+
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="content-section text-center">
-                {% include "parts/form_auth.html" %}
-                <br>
-                <a href="/auth/register">Нет аккаунта? Зарегистрируйтесь</a>
-                <br>
-                <div class="text-center">
-                    <hr>
-                    <br>
-                    <img src="/static/img/qr_example.png" alt="QR Code" id="qr-code" style="max-width: 100%; height: auto;">
-                    <br>
-                    <br>
-                    <h5>Сканируйте QR-код</h5>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="row justify-content-center align-items-center">
+    <h3 class="mb-0 fw-bolder">TechConnect</h3>
 </div>
+<br>
+<form id="auth-form" class="mx-auto" style="max-width: 40vh;">
+    <div class="form-group">
+        <input type="text" class="form-control" id="id_username" name="username" placeholder="Логин или телефон" required>
+    </div>
+    <div class="form-group">
+        <input type="password" class="form-control" id="id_password" name="password" placeholder="Пароль" required>
+    </div>
+    <button class="form-control btn-primary btn-block" type="submit">Войти</button>
+</form>
+<br>
+<a href="/auth/register">Нет аккаунта? Зарегистрируйтесь</a>
+
+<script>
+    document.getElementById("auth-form").addEventListener("submit", async function (event) {
+        event.preventDefault();
+        
+        const usernameOrPhone = document.getElementById("id_username").value.trim();
+        const password = document.getElementById("id_password").value;
+
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(usernameOrPhone);
+        const isPhone = /^\+7\d10$/.test(usernameOrPhone);
+
+        let url = "";
+        let requestData = { password };
+
+        if (isEmail) {
+            url = "/api/auth/login/email/";
+            requestData.email = usernameOrPhone;
+        } else if (isPhone) {
+            url = "/api/auth/login/telephone/";
+            requestData.telephone = usernameOrPhone;
+        } else {
+            alert("Введите корректный телефон или email.");
+            return;
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(requestData)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                window.location.href = "/auth/profile/";
+            } else {
+                const errorData = await response.json();
+                const errorMessage = errorData.detail ? errorData.detail.map(err => err.msg).join(", ") : "Ошибка авторизации.";
+                alert("Ошибка авторизации: " + errorMessage);
+            }
+        } catch (error) {
+            console.error("Ошибка сети:", error);
+            alert("Ошибка сети. Попробуйте позже.");
+        }
+    });
+</script>
 {% endblock content %}
