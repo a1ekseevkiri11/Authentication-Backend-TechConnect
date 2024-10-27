@@ -25,7 +25,6 @@ from src.otp.service import (
 from src.auth.utils import get_hash, is_matched_hash
 from src.auth.services.jwt import JWTServices, TokenService
 from src.settings import settings
-from src.auth.services.user import UserService
 
 
 class AuthMethodWithPassword(abc.ABC):
@@ -164,7 +163,7 @@ class AuthService:
     async def login(
         self,
         response: Response,
-        login_data: auth_schemas.AbstractRegisterRequest,
+        login_data: auth_schemas.AbstractLoginRequest,
     ) -> auth_schemas.Token:
 
         user_data = await self._method_auth.find_user_and_check_password(

@@ -1,5 +1,4 @@
 from datetime import datetime
-import enum
 import re
 from pydantic import (
     BaseModel,
@@ -7,7 +6,7 @@ from pydantic import (
     Field,
     field_validator,
 )
-from typing import Annotated, Optional, Self, Union
+from typing import  Optional
 
 
 class AbstractTelephoneForAuth(BaseModel):
@@ -21,20 +20,31 @@ class AbstractTelephoneForAuth(BaseModel):
         return v[1:]
 
 
-class AbstractLoginRequest(BaseModel):
+class AbstractPasswordForAuth(BaseModel):
     password: str
+    
+    @field_validator("password", mode="before")
+    @classmethod
+    def validate_name(cls, v):
+        if not(0 < len(v) < 256):
+            raise ValueError("Длинна пароля должена быть больше 0 и меньше 256")
+        return v
+
+
+class AbstractLoginRequest(AbstractPasswordForAuth):
+    pass
 
 
 class EmailLoginRequest(AbstractLoginRequest):
     email: EmailStr
 
 
-class TelephoneLoginRequest(AbstractLoginRequest, AbstractTelephoneForAuth):
+class TelephoneLoginRequest(AbstractTelephoneForAuth, AbstractLoginRequest):
     pass
 
 
-class AbstractRegisterRequest(BaseModel):
-    password: str
+class AbstractRegisterRequest(AbstractPasswordForAuth):
+    pass
 
 
 class EmailRegisterRequest(AbstractRegisterRequest):
