@@ -17,4 +17,4 @@ class EmailService:
                 )
                 server.sendmail(settings.smtp.from_address, to_adres, msg.as_string())
         except Exception as e:
-            print(f"ошибка в email{e}")
+            pass

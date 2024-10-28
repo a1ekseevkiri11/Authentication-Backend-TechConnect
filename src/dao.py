@@ -1,10 +1,10 @@
 from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
-
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.sql import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
+
 
 from src.models import Base
 
@@ -62,7 +62,6 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             elif isinstance(e, Exception):
                 msg = "Unknown Exc: Cannot insert data into table"
 
-            print(msg)
             return None
 
     @classmethod
@@ -87,33 +86,6 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         )
         result = await session.execute(stmt)
         return result.scalars().one()
-
-    @classmethod
-    async def add_bulk(cls, session: AsyncSession, data: List[Dict[str, Any]]):
-        try:
-            result = await session.execute(insert(cls.model).returning(cls.model), data)
-            return result.scalars().all()
-        except (SQLAlchemyError, Exception) as e:
-            if isinstance(e, SQLAlchemyError):
-                msg = "Database Exc"
-            elif isinstance(e, Exception):
-                msg = "Unknown Exc"
-            msg += ": Cannot bulk insert data into table"
-            return None
-
-    @classmethod
-    async def update_bulk(cls, session: AsyncSession, data: List[Dict[str, Any]]):
-        try:
-            stmt = update(cls.model)
-            await session.execute(update(cls.model), data)
-        except (SQLAlchemyError, Exception) as e:
-            if isinstance(e, SQLAlchemyError):
-                msg = "Database Exc"
-            elif isinstance(e, Exception):
-                msg = "Unknown Exc"
-            msg += ": Cannot bulk update data into table"
-            print(msg)
-            return None
 
     @classmethod
     async def count(cls, session: AsyncSession, *filter, **filter_by):

@@ -1,6 +1,5 @@
 import abc
 import time
-
 from fastapi import (
     BackgroundTasks,
     HTTPException,
@@ -240,7 +239,6 @@ class TelegramService:
                 session,
                 id=telegram_db.user_id,
             )
-            print(user_db)
             
         return auth_schemas.User.model_validate(user_db)
             

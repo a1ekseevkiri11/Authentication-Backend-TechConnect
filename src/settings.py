@@ -29,7 +29,7 @@ class SMSSettings(BaseModel):
     email: EmailStr = os.getenv("SMSAERO_EMAIL")
     api_key: str = os.getenv("SMSAERO_API_KEY")
     gate_url: str = "gate.smsaero.ru/v2/"
-    signature: str = "SMS Aero" # Лучше не менять, почему-то при других данных выдает ошибку
+    signature: str = "SMS Aero"
     timeout: int = 10
 
 
