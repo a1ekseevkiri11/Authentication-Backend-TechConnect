@@ -15,12 +15,40 @@ UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseModel)
 
 
 class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
+    """
+    Базовый класс DAO (Data Access Object) для работы с моделями базы данных.
+
+    Параметры:
+    - ModelType: Тип модели, с которой работает DAO.
+    - CreateSchemaType: Тип схемы для создания новой записи.
+    - UpdateSchemaType: Тип схемы для обновления существующей записи.
+
+    Методы:
+    - find_one_or_none: Находит одну запись или возвращает None.
+    - find_all: Находит все записи с поддержкой фильтрации и пагинации.
+    - add: Добавляет новую запись в базу данных.
+    - delete: Удаляет записи из базы данных по заданным условиям.
+    - update: Обновляет существующую запись в базе данных.
+    - count: Подсчитывает количество записей, соответствующих заданным условиям.
+    """
+    
     model = None
 
     @classmethod
     async def find_one_or_none(
         cls, session: AsyncSession, *filter, **filter_by
     ) -> Optional[ModelType]:
+        """
+        Находит одну запись по заданным фильтрам или возвращает None.
+
+        Параметры:
+        - session: AsyncSession - Сессия базы данных.
+        - filter: Условия фильтрации.
+        - filter_by: Условия фильтрации по именам полей.
+
+        Возвращает:
+        - Optional[ModelType]: Найденная запись или None.
+        """
         stmt = select(cls.model).filter(*filter).filter_by(**filter_by)
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
@@ -34,6 +62,20 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         limit: int = 100,
         **filter_by,
     ) -> List[ModelType]:
+        """
+        Находит все записи с поддержкой фильтрации и пагинации.
+
+        Параметры:
+        - session: AsyncSession - Сессия базы данных.
+        - filter: Условия фильтрации.
+        - offset: int - Смещение для пагинации (по умолчанию 0).
+        - limit: int - Лимит записей для получения (по умолчанию 100).
+        - filter_by: Условия фильтрации по именам полей.
+
+        Возвращает:
+        - List[ModelType]: Список найденных записей.
+        """
+        
         stmt = (
             select(cls.model)
             .filter(*filter)
@@ -48,6 +90,17 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
     async def add(
         cls, session: AsyncSession, obj_in: Union[CreateSchemaType, Dict[str, Any]]
     ) -> Optional[ModelType]:
+        """
+        Добавляет новую запись в базу данных.
+
+        Параметры:
+        - session: AsyncSession - Сессия базы данных.
+        - obj_in: Union[CreateSchemaType, Dict[str, Any]] - Данные для создания записи.
+
+        Возвращает:
+        - Optional[ModelType]: Добавленная запись или None в случае ошибки.
+        """
+        
         if isinstance(obj_in, dict):
             create_data = obj_in
         else:
@@ -66,6 +119,15 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
     @classmethod
     async def delete(cls, session: AsyncSession, *filter, **filter_by) -> None:
+        """
+        Удаляет записи из базы данных по заданным условиям.
+
+        Параметры:
+        - session: AsyncSession - Сессия базы данных.
+        - filter: Условия фильтрации.
+        - filter_by: Условия фильтрации по именам полей.
+        """
+        
         stmt = delete(cls.model).filter(*filter).filter_by(**filter_by)
         await session.execute(stmt)
 
@@ -76,6 +138,18 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         *where,
         obj_in: Union[UpdateSchemaType, Dict[str, Any]],
     ) -> Optional[ModelType]:
+        """
+        Обновляет существующую запись в базе данных.
+
+        Параметры:
+        - session: AsyncSession - Сессия базы данных.
+        - where: Условия для поиска записей, которые необходимо обновить.
+        - obj_in: Union[UpdateSchemaType, Dict[str, Any]] - Данные для обновления записи.
+
+        Возвращает:
+        - Optional[ModelType]: Обновленная запись или None.
+        """
+        
         if isinstance(obj_in, dict):
             update_data = obj_in
         else:
@@ -89,6 +163,18 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
     @classmethod
     async def count(cls, session: AsyncSession, *filter, **filter_by):
+        """
+        Подсчитывает количество записей, соответствующих заданным условиям.
+
+        Параметры:
+        - session: AsyncSession - Сессия базы данных.
+        - filter: Условия фильтрации.
+        - filter_by: Условия фильтрации по именам полей.
+
+        Возвращает:
+        - int: Количество найденных записей.
+        """
+        
         stmt = (
             select(func.count())
             .select_from(cls.model)

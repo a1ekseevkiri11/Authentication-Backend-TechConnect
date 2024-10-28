@@ -13,8 +13,9 @@ DB_PATH = BASE_DIR / "db.sqlite3"
 
 DOMAIN_FOR_TELEGRAM_AUTH_WIDGET = "https://3c06-37-79-71-251.ngrok-free.app"
 
- # Настройка виджета телеграм для его привязки к акаунту
- # Путь к виджету src/auth/templates/profile 
+
+# Настройка виджета телеграм для его привязки к акаунту
+# Путь к виджету src/auth/templates/profile
 class TelegramAuthWidgetSettings:
     login: str = "TESTQWERTYMY_bot"
     attach_url: str = f"{DOMAIN_FOR_TELEGRAM_AUTH_WIDGET}/api/auth/attach/telegram"
@@ -22,7 +23,7 @@ class TelegramAuthWidgetSettings:
 
 
 class TelegramBotSettings(BaseModel):
-    token: str = os.getenv("TELEGRAM_BOT_TOKEN")    
+    token: str = os.getenv("TELEGRAM_BOT_TOKEN")
 
 
 class SMSSettings(BaseModel):
@@ -71,9 +72,9 @@ class Settings(BaseSettings):
     sms: SMSSettings = SMSSettings()
 
     auth_jwt: AuthJWT = AuthJWT()
-    
+
     telegram_bot: TelegramBotSettings = TelegramBotSettings()
-    
+
     telegram_auth_widget: TelegramAuthWidgetSettings = TelegramAuthWidgetSettings()
 
 

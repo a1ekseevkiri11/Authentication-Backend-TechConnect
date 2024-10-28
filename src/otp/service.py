@@ -19,14 +19,30 @@ from src.sms import service as sms_service
 from src.email.service import EmailService
 
 
-# TODO переместить схемы и модели TempUser в эту директорию
 class TempUserService:
+    """
+    Сервис для работы с временными пользователями.
+
+    Методы:
+    - add_temp_user: Добавляет временного пользователя с одноразовым паролем и временем жизни.
+    - get: Получает временного пользователя по его идентификатору.
+    """
 
     @staticmethod
     async def add_temp_user(
         otp_code: str,
         user_data: auth_schemas.UserCreateDB,
     ) -> int:
+        """
+        Добавляет временного пользователя с указанным одноразовым паролем.
+
+        Параметры:
+        - otp_code: str - Одноразовый пароль, который будет сохранен.
+        - user_data: UserCreateDB - Данные пользователя для создания временного пользователя.
+
+        Возвращает:
+        - int: Идентификатор добавленного временного пользователя.
+        """
         async with async_session_maker() as session:
             hashed_otp_code = get_hash(otp_code)
             exp = datetime.now() + timedelta(minutes=settings.otp.expire_minutes)
@@ -46,6 +62,18 @@ class TempUserService:
     async def get(
         id: int,
     ):
+        """
+        Получает временного пользователя по его идентификатору.
+
+        Параметры:
+        - id: int - Идентификатор временного пользователя.
+
+        Возвращает:
+        - TempUser: Данные временного пользователя.
+
+        Исключения:
+        - HTTPException: Если временный пользователь не найден.
+        """
         async with async_session_maker() as session:
             temp_user_db = await auth_dao.TempUserDao.find_one_or_none(
                 session,
@@ -61,9 +89,24 @@ class TempUserService:
 
 
 class BaseOTPService(abc.ABC):
+    """
+    Базовый сервис для работы с одноразовыми паролями (OTP).
+
+    Методы:
+    - _generate_code: Генерирует одноразовый пароль.
+    - check_otp_code: Проверяет, соответствует ли код одноразового пароля.
+    - _send_code: Отправляет одноразовый пароль (метод должен быть переопределен в дочерних классах).
+    - send: Генерирует код и отправляет его пользователю.
+    """
 
     @classmethod
     def _generate_code(self) -> int:
+        """
+        Генерирует одноразовый пароль.
+
+        Возвращает:
+        - int: Сгенерированный одноразовый пароль.
+        """
         return "".join(
             secrets.choice(string.digits) for _ in range(settings.otp.length)
         )
@@ -73,6 +116,16 @@ class BaseOTPService(abc.ABC):
         temp_user_data: auth_schemas.TempUser,
         code: str,
     ) -> bool:
+        """
+        Проверяет, действителен ли код одноразового пароля.
+
+        Параметры:
+        - temp_user_data: TempUser - Данные временного пользователя.
+        - code: str - Код для проверки.
+
+        Возвращает:
+        - bool: True, если код действителен, иначе False.
+        """
         if temp_user_data.exp < datetime.now():
             return False
 
@@ -84,6 +137,13 @@ class BaseOTPService(abc.ABC):
         code: str,
         user_data: auth_schemas.UserCreateDB,
     ) -> None:
+        """
+        Отправляет одноразовый пароль пользователю (метод должен быть переопределен в дочерних классах).
+
+        Параметры:
+        - code: str - Код для отправки.
+        - user_data: UserCreateDB - Данные пользователя для отправки.
+        """
         pass
 
     @classmethod
@@ -92,6 +152,17 @@ class BaseOTPService(abc.ABC):
         user_data: auth_schemas.UserCreateDB,
         background_tasks: BackgroundTasks,
     ) -> int:
+        """
+        Генерирует одноразовый пароль и отправляет его пользователю.
+
+        Параметры:
+        - user_data: UserCreateDB - Данные пользователя для отправки.
+        - background_tasks: BackgroundTasks - Задачи, которые будут выполнены в фоновом режиме.
+
+        Возвращает:
+        - int: Идентификатор временного пользователя.
+        """
+        
         code = self._generate_code()
 
         background_tasks.add_task(
@@ -109,6 +180,9 @@ class BaseOTPService(abc.ABC):
 
 
 class TelephoneOTPService(BaseOTPService):
+    """
+    Сервис для работы с одноразовыми паролями (OTP) через SMS.
+    """
 
     @classmethod
     async def _send_code(
@@ -116,6 +190,13 @@ class TelephoneOTPService(BaseOTPService):
         code: str,
         user_data: auth_schemas.UserCreateDB,
     ) -> None:
+        """
+        Отправляет одноразовый пароль пользователю по SMS.
+
+        Параметры:
+        - code: str - Код для отправки.
+        - user_data: UserCreateDB - Данные пользователя для отправки.
+        """
         await sms_service.SMSService.send_sms(
             msg=code,
             telephone=user_data.telephone,
@@ -123,6 +204,9 @@ class TelephoneOTPService(BaseOTPService):
 
 
 class EmailOTPService(BaseOTPService):
+    """
+    Сервис для работы с одноразовыми паролями (OTP) через Email.
+    """
 
     @classmethod
     async def _send_code(
@@ -130,6 +214,14 @@ class EmailOTPService(BaseOTPService):
         code: str,
         user_data: auth_schemas.UserCreateDB,
     ) -> None:
+        """
+        Отправляет одноразовый пароль пользователю по Email.
+
+        Параметры:
+        - code: str - Код для отправки.
+        - user_data: UserCreateDB - Данные пользователя для отправки.
+        """
+        
         msg = MIMEText(code)
         msg["Subject"] = "Ваш одноразовый пароль"
         msg["From"] = settings.smtp.from_address

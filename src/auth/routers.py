@@ -46,7 +46,7 @@ async def template_login(request: Request):
             "telegram_auth_widget": {
                 "auth_url": settings.telegram_auth_widget.login_url,
                 "login": settings.telegram_auth_widget.login,
-            }
+            },
         },
     )
 
@@ -63,7 +63,7 @@ async def templates_profile(
             "telegram_auth_widget": {
                 "auth_url": settings.telegram_auth_widget.attach_url,
                 "login": settings.telegram_auth_widget.login,
-            }
+            },
         },
     )
 
@@ -82,33 +82,54 @@ async def email_register(
     register_data: auth_schemas.EmailRegisterRequest,
     background_tasks: BackgroundTasks,
 ) -> auth_schemas.TempUserResponce:
+    """
+    Регистрирует пользователя по электронной почте.
+
+    Параметры:
+    - register_data (EmailRegisterRequest): Данные для регистрации, включая email и другие необходимые поля.
+
+    Возвращает:
+    - TempUserResponce: Временный ID пользователя, созданного для подтверждения.
+    """
     temp_user_id = await EmailAuthService.register(
         register_data=register_data,
         background_tasks=background_tasks,
     )
-    return auth_schemas.TempUserResponce(
-        id=temp_user_id
-    )
+    return auth_schemas.TempUserResponce(id=temp_user_id)
 
 
 @auth_router.post(
     "/otp/email/",
     status_code=status.HTTP_201_CREATED,
 )
-async def otp_email(
-    otp_data: auth_schemas.OTPRequest
-) -> None:
-    await EmailAuthService.otp(
-        temp_user_id=otp_data.temp_user_id, 
-        code=otp_data.code
-    )
+async def otp_email(otp_data: auth_schemas.OTPRequest) -> None:
+    """
+    Подтверждает OTP-код для временного пользователя, зарегистрированного по email.
+
+    Параметры:
+    - otp_data (OTPRequest): Данные для подтверждения, содержащие временный ID пользователя и OTP-код.
+
+    Возвращает:
+    - None: Сообщение подтверждено, если OTP-код корректен.
+    """
+    await EmailAuthService.otp(temp_user_id=otp_data.temp_user_id, code=otp_data.code)
 
 
 @auth_router.post("/login/email/", response_model=auth_schemas.Token)
 async def email_login(
     response: Response,
     login_data: auth_schemas.EmailLoginRequest,
-):
+) -> auth_schemas.Token:
+    """
+    Авторизует пользователя по email и паролю, возвращая JWT-токен при успешной авторизации.
+
+    Параметры:
+    - response (Response): Объект для установки заголовков.
+    - login_data (EmailLoginRequest): Данные для входа, содержащие email и пароль пользователя.
+
+    Возвращает:
+    - Token: JWT-токен, предоставляющий доступ к защищенным ресурсам.
+    """
     return await EmailAuthService.login(
         response=response,
         login_data=login_data,
@@ -118,7 +139,7 @@ async def email_login(
 # TELEGRAM
 @auth_router.get(
     "/attach/telegram/",
-    response_class= RedirectResponse,
+    response_class=RedirectResponse,
 )
 async def attach_telegram(
     id: int = Query(..., alias="id"),
@@ -130,6 +151,22 @@ async def attach_telegram(
     hash: str = Query(..., alias="hash"),
     current_user: auth_schemas.User = Depends(UserService.get_me),
 ):
+    """
+    Привязывает аккаунт Telegram к существующему пользователю.
+
+    Параметры:
+    - id (int): Уникальный идентификатор Telegram пользователя.
+    - first_name (str): Имя пользователя Telegram.
+    - last_name (str): Фамилия пользователя Telegram.
+    - username (str): Никнейм пользователя Telegram.
+    - photo_url (str): URL фотографии профиля Telegram.
+    - auth_date (int): Дата и время авторизации в Telegram.
+    - hash (str): Хеш-значение для верификации Telegram.
+    - current_user (User): Текущий авторизованный пользователь, к которому будет привязан аккаунт Telegram.
+
+    Возвращает:
+    - RedirectResponse: Перенаправляет на профиль после успешного привязывания.
+    """
     telegram_request = auth_schemas.TelegramRequest(
         id=id,
         first_name=first_name,
@@ -147,8 +184,8 @@ async def attach_telegram(
 
 
 @auth_router.get(
-    "/login/telegram/", 
-    response_class= RedirectResponse,
+    "/login/telegram/",
+    response_class=RedirectResponse,
 )
 async def telegram_login(
     response: Response,
@@ -160,6 +197,22 @@ async def telegram_login(
     auth_date: int = Query(..., alias="auth_date"),
     hash: str = Query(..., alias="hash"),
 ):
+    """
+    Авторизует пользователя через Telegram.
+
+    Параметры:
+    - response (Response): Объект для установки заголовков.
+    - id (int): Уникальный идентификатор Telegram пользователя.
+    - first_name (str): Имя пользователя Telegram.
+    - last_name (str): Фамилия пользователя Telegram.
+    - username (str): Никнейм пользователя Telegram.
+    - photo_url (str): URL фотографии профиля Telegram.
+    - auth_date (int): Дата и время авторизации в Telegram.
+    - hash (str): Хеш-значение для верификации Telegram.
+
+    Возвращает:
+    - RedirectResponse: Перенаправляет на профиль после успешной авторизации.
+    """
     telegram_request = auth_schemas.TelegramRequest(
         id=id,
         first_name=first_name,
@@ -174,7 +227,6 @@ async def telegram_login(
         telegram_request=telegram_request,
     )
     return "/auth/profile/"
-    
 
 
 # TELEPHONE
@@ -186,25 +238,38 @@ async def telephone_register(
     register_data: auth_schemas.TelephoneRegisterRequest,
     background_tasks: BackgroundTasks,
 ) -> auth_schemas.TempUserResponce:
+    """
+    Регистрирует пользователя по номеру телефона.
+
+    Параметры:
+    - register_data (TelephoneRegisterRequest): Данные для регистрации, включая номер телефона.
+
+    Возвращает:
+    - TempUserResponce: Временный ID пользователя, созданного для подтверждения.
+    """
     temp_user_id = await TelephoneAuthService.register(
         register_data=register_data,
         background_tasks=background_tasks,
     )
-    return auth_schemas.TempUserResponce(
-        id=temp_user_id
-    )
-    
+    return auth_schemas.TempUserResponce(id=temp_user_id)
+
 
 @auth_router.post(
     "/otp/telephone/",
     status_code=status.HTTP_201_CREATED,
 )
-async def otp_telephone(
-    otp_data: auth_schemas.OTPRequest
-) -> None:
+async def otp_telephone(otp_data: auth_schemas.OTPRequest) -> None:
+    """
+    Подтверждает OTP-код для временного пользователя, зарегистрированного по номеру телефона.
+
+    Параметры:
+    - otp_data (OTPRequest): Данные для подтверждения, содержащие временный ID пользователя и OTP-код.
+
+    Возвращает:
+    - None: Успешное подтверждение OTP-кода.
+    """
     await TelephoneAuthService.otp(
-        temp_user_id=otp_data.temp_user_id, 
-        code=otp_data.code
+        temp_user_id=otp_data.temp_user_id, code=otp_data.code
     )
 
 
@@ -212,7 +277,17 @@ async def otp_telephone(
 async def telephone_login(
     response: Response,
     login_data: auth_schemas.TelephoneLoginRequest,
-):
+) -> auth_schemas.Token:
+    """
+    Авторизует пользователя по номеру телефона и паролю, возвращая JWT-токен при успешной авторизации.
+
+    Параметры:
+    - response (Response): Объект для установки заголовков.
+    - login_data (TelephoneLoginRequest): Данные для входа, содержащие номер телефона и пароль пользователя.
+
+    Возвращает:
+    - Token: JWT-токен, предоставляющий доступ к защищенным ресурсам.
+    """
     return await TelephoneAuthService.login(
         response=response,
         login_data=login_data,
@@ -223,17 +298,35 @@ async def telephone_login(
     "/logout/",
 )
 async def logout(
-    response: Response,
-    current_user: auth_schemas.User = Depends(UserService.get_me)
+    response: Response, current_user: auth_schemas.User = Depends(UserService.get_me)
 ) -> None:
+    """
+    Выходит из текущей сессии, очищая токен в Cookie.
+
+    Параметры:
+    - response (Response): Объект для удаления токена из заголовков.
+    - current_user (User): Текущий авторизованный пользователь.
+
+    Возвращает:
+    - None: Сессия завершена, токен удален.
+    """
     TokenService.clear(response)
-    
 
 
-# TODO перенести роутеры и методы user в отдельную директорию
 @auth_router.get(
     "/user/me/",
     response_model=auth_schemas.UserResponse,
 )
-async def me(current_user: auth_schemas.User = Depends(UserService.get_me)):
+async def me(
+    current_user: auth_schemas.User = Depends(UserService.get_me)
+) -> auth_schemas.UserResponse:
+    """
+    Возвращает информацию о текущем авторизованном пользователе.
+
+    Параметры:
+    - current_user (User): Текущий авторизованный пользователь, получаемый через зависимость `UserService.get_me`.
+
+    Возвращает:
+    - UserResponse: Информация о пользователе в формате схемы ответа.
+    """
     return current_user

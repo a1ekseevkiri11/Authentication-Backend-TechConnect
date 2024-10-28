@@ -6,7 +6,7 @@ from pydantic import (
     Field,
     field_validator,
 )
-from typing import  Optional
+from typing import Optional
 
 
 class AbstractTelephoneForAuth(BaseModel):
@@ -22,11 +22,11 @@ class AbstractTelephoneForAuth(BaseModel):
 
 class AbstractPasswordForAuth(BaseModel):
     password: str
-    
+
     @field_validator("password", mode="before")
     @classmethod
     def validate_name(cls, v):
-        if not(0 < len(v) < 256):
+        if not (0 < len(v) < 256):
             raise ValueError("Длинна пароля должена быть больше 0 и меньше 256")
         return v
 
@@ -133,7 +133,7 @@ class UserResponse(BaseModel):
 class TempUserResponce(BaseModel):
     id: int
 
-    
+
 class OTPRequest(BaseModel):
     temp_user_id: int
     code: str
