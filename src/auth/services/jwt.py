@@ -12,10 +12,10 @@ from src.settings import settings
 from src.auth import schemas as auth_schemas
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login/")
-
-
 class JWTServices:
+    """
+    Сервис для работы с JSON Web Tokens (JWT).
+    """
     @classmethod
     def encode(
         cls,
@@ -23,6 +23,17 @@ class JWTServices:
         private_key: str = settings.auth_jwt.private_key_path.read_text(),
         algorithm: str = settings.auth_jwt.algorithm,
     ) -> str:
+        """
+        Кодирует данные в JWT-токен.
+
+        Параметры:
+        - payload: dict - данные, которые будут закодированы в токен.
+        - private_key: str - закрытый ключ для подписи токена (по умолчанию считывается из настроек).
+        - algorithm: str - алгоритм подписи (по умолчанию берется из настроек).
+
+        Возвращает:
+        - str: Закодированный JWT-токен.
+        """
         return jwt.encode(payload, key=private_key, algorithm=algorithm)
 
     @classmethod
@@ -47,6 +58,17 @@ class JWTServices:
         expire_timedelta: timedelta | None = None,
         access_expire_minutes: int = settings.auth_jwt.access_token_expire_minutes,
     ) -> auth_schemas.Token:
+        """
+        Создает новый JWT-токен для текущего пользователя.
+
+        Параметры:
+        - current_user_id: int - ID текущего пользователя.
+        - expire_timedelta: timedelta | None - время истечения токена (по умолчанию - None).
+        - access_expire_minutes: int - время истечения токена в минутах (по умолчанию считывается из настроек).
+
+        Возвращает:
+        - Token: Созданный JWT-токен.
+        """
 
         now = datetime.now(timezone.utc)
 
@@ -70,13 +92,33 @@ class JWTServices:
         self,
         token: str,
     ) -> bool:
+        """
+        Проверяет, действителен ли JWT-токен.
+
+        Параметры:
+        - token: str - JWT-токен для проверки.
+
+        Возвращает:
+        - bool: True, если токен действителен, иначе False.
+        """
         exp = datetime.fromtimestamp(self.decode(token=token).get("exp"))
         return exp > datetime.now()
 
 
 class TokenService:
+    """
+    Сервис для управления токенами в HTTP-ответах.
+    """
+    
     @staticmethod
     def set(response: Response, token: auth_schemas.Token) -> None:
+        """
+        Устанавливает JWT-токен в cookie в HTTP-ответе.
+
+        Параметры:
+        - response: Response - объект ответа для установки cookie.
+        - token: Token - JWT-токен для установки в cookie.
+        """
         response.set_cookie(
             "access_token",
             token.access_token,
@@ -88,4 +130,10 @@ class TokenService:
     def clear(
         response: Response,
     ) -> None:
-        pass
+        """
+        Удаляет JWT-токен из cookie в HTTP-ответе.
+
+        Параметры:
+        - response: Response - объект ответа для удаления cookie.
+        """
+        response.delete_cookie("access_token")

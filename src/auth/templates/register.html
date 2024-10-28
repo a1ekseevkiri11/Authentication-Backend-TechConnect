@@ -1,15 +1,141 @@
 {% extends "parts/base.html" %}
-
+{% block title %}
+Регистрация
+{% endblock %}
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="content-section text-center">
-                {% include "parts/form_auth.html" %}
-                <br>
-                <a href="/auth/login">Уже есть аккаунт? Войдите</a>
+<div class="row justify-content-center align-items-center">
+	<h3 class="mb-0 fw-bolder">TechConnect</h3>
+</div>
+<br>
+<form id="auth-form" class="mx-auto" style="max-width: 40vh;">
+	<div class="form-group">
+		<input type="text" class="form-control" id="id_username" name="username" placeholder="Логин или телефон"
+			required>
+	</div>
+	<div class="form-group">
+		<input type="password" class="form-control" id="id_password" name="password" placeholder="Пароль" required>
+	</div>
+	<button class="form-control btn-primary btn-block" type="submit">Зарегистрироваться</button>
+</form>
+<br>
+<a href="/auth/login">Уже есть аккаунт? Войдите</a>
+
+<!-- Всплывающее окно -->
+<div class="modal fade" id="otpModal" tabindex="-1" aria-labelledby="otpModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="otpModalLabel">Подтверждение OTP</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Сообщение OTP -->
+                <p id="otpMessage" class="text-muted">На ваш email или телефон отправлен OTP.</p>
+                
+                <!-- Форма для отправки OTP -->
+                <form id="otp-form">
+                    <input type="hidden" id="temp_user_id" name="temp_user_id" value="">
+                    <div class="mb-3">
+                        <label for="id_otp" class="form-label">Введите OTP</label>
+                        <input type="text" class="form-control" id="id_otp" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Подтвердить</button>
+                </form>
             </div>
         </div>
     </div>
 </div>
+
+
+<script>
+    document.getElementById("auth-form").addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const usernameOrPhone = document.getElementById("id_username").value.trim();
+        const password = document.getElementById("id_password").value;
+
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(usernameOrPhone);
+        const isPhone = /^\+7\d{10}$/.test(usernameOrPhone);
+
+        let url = "";
+        let requestData = { password };
+
+        if (isEmail) {
+            url = "/api/auth/register/email/";
+            requestData.email = usernameOrPhone;
+        } else if (isPhone) {
+            url = "/api/auth/register/telephone/";
+            requestData.telephone = usernameOrPhone;
+        } else {
+            alert("Введите корректный телефон или email.");
+            return;
+        }
+
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById("otpMessage").innerText =
+                isEmail ? "На ваш email отправлен OTP." : "На ваш телефон отправлен OTP.";
+            
+            document.getElementById("temp_user_id").value = data.id; // Сохранение temp_user_id
+
+            // Показать модальное окно для ввода OTP
+            const otpModal = new bootstrap.Modal(document.getElementById('otpModal'));
+            otpModal.show();
+        } else if (response.status === 409) {
+            const errorData = await response.json();
+            const errorMessage = errorData.detail ? errorData.detail.map(err => err.msg).join(", ") : "Пользователь с таким email или телефоном уже существует.";
+            alert("Ошибка регистрации: " + errorMessage);
+        } else {
+            const errorData = await response.json();
+            const errorMessage = errorData.detail ? errorData.detail.map(err => err.msg).join(", ") : "Ошибка регистрации.";
+            alert("Ошибка регистрации: " + errorMessage);
+        }
+    });
+
+    // Обработчик отправки формы OTP
+    document.getElementById("otp-form").addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const otp = document.getElementById("id_otp").value.trim();
+        const tempUserId = document.getElementById("temp_user_id").value;
+        const usernameOrPhone = document.getElementById("id_username").value.trim();
+        
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(usernameOrPhone);
+        const url = isEmail ? "/api/auth/otp/email/" : "/api/auth/otp/telephone/";
+
+        const requestData = {
+            temp_user_id: parseInt(tempUserId, 10),
+            code: otp
+        };
+
+        try {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(requestData)
+            });
+
+            if (response.ok) {
+                window.location.href = "/auth/login/";
+            } else {
+                const errorData = await response.json();
+                const errorMessage = errorData.detail ? errorData.detail.map(err => err.msg).join(", ") : "Ошибка подтверждения OTP.";
+                alert("Ошибка подтверждения OTP: " + errorMessage);
+            }
+        } catch (error) {
+            console.error("Ошибка сети:", error);
+            alert("Ошибка сети. Попробуйте позже.");
+        }
+    });
+</script>
 {% endblock content %}

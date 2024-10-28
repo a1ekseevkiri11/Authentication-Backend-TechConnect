@@ -1,0 +1,14 @@
+services:
+  auth_service:
+    build: .
+    command: sh -c "cd /opt/app && Docker/start.sh"
+    volumes:
+      - .:/opt/app
+      - auth_service_sqlite_data:/app/db
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite:////app/db/db.sqlite3  # Изменено на /app/db/db.sqlite3
+
+volumes:
+  auth_service_sqlite_data:

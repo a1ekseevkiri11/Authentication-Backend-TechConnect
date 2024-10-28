@@ -10,7 +10,7 @@ COPY ./pyproject.toml ./poetry.lock* /opt/app/
 
 RUN poetry export --without-hashes --format=requirements.txt > requirements.txt
 
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /opt/app/requirements.txt
 
 COPY . .
 

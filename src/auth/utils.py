@@ -3,7 +3,6 @@ from typing import Dict, Optional
 from fastapi import HTTPException, Request, status
 from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
 from fastapi.security import OAuth2
-from fastapi.security.utils import get_authorization_scheme_param
 from fastapi import status
 from passlib.context import CryptContext
 
@@ -20,6 +19,17 @@ def is_matched_hash(word: str, hashed: str) -> bool:
 
 
 class OAuth2PasswordCookie(OAuth2):
+    """
+    Класс для реализации аутентификации OAuth2 с использованием JWT-токена,
+    хранящегося в cookie.
+
+    Параметры:
+    - tokenUrl: str - URL для получения токена.
+    - scheme_name: Optional[str] - Название схемы аутентификации (по умолчанию None).
+    - scopes: Optional[Dict[str, str]] - Опциональные области доступа для токена (по умолчанию пустой словарь).
+    - auto_error: bool - Если True, будет выдано исключение, если токен не найден (по умолчанию True).
+    """
+    
     def __init__(
         self,
         tokenUrl: str,
@@ -33,6 +43,19 @@ class OAuth2PasswordCookie(OAuth2):
         super().__init__(flows=flows, scheme_name=scheme_name, auto_error=auto_error)
 
     async def __call__(self, request: Request) -> Optional[str]:
+        """
+        Получает токен из cookie запроса.
+
+        Параметры:
+        - request: Request - HTTP-запрос, содержащий cookie.
+
+        Возвращает:
+        - Optional[str]: Токен, если он найден, иначе None.
+
+        Исключения:
+        - HTTPException: Если токен не найден и auto_error равно True.
+        """
+        
         token = request.cookies.get("access_token")
 
         if token is not None:

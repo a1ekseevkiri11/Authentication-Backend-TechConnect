@@ -21,8 +21,24 @@ oauth2_scheme = OAuth2PasswordCookie(
 
 
 class UserService:
+    """
+    Сервис для работы с пользователями.
+    """
+    
     @staticmethod
     async def get(id: int) -> auth_schemas.User:
+        """
+        Получает пользователя по его ID.
+
+        Параметры:
+        - id: int - ID пользователя для получения.
+
+        Возвращает:
+        - User: Объект пользователя, соответствующий указанному ID.
+
+        Исключения:
+        - HTTPException: Если пользователь с указанным ID не найден.
+        """
         async with async_session_maker() as session:
             stmt = (
                 select(auth_dao.UserDao.model)
@@ -43,7 +59,19 @@ class UserService:
     async def get_me(
         self,
         token: str = Depends(oauth2_scheme),
-    ):
+    ) -> auth_schemas.User:
+        """
+        Получает текущего аутентифицированного пользователя.
+
+        Параметры:
+        - token: str - JWT-токен для аутентификации пользователя (по умолчанию извлекается из зависимости).
+
+        Возвращает:
+        - User: Объект текущего аутентифицированного пользователя.
+
+        Исключения:
+        - InvalidTokenException: Если токен недействителен или истек.
+        """
         try:
             if not JWTServices.is_valid(token=token):
                 raise exceptions.TokenExpiredException

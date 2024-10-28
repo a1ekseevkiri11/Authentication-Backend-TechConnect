@@ -13,7 +13,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="palka_dazzla_web",
+    title="Authentication-Backend-TechConnect",
     description="",
     debug=settings.debug,
 )
